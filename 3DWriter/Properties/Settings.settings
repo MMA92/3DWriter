@@ -6,10 +6,10 @@
       <Value Profile="(Default)">cursive</Value>
     </Setting>
     <Setting Name="bedwidth" Type="System.String" Scope="User">
-      <Value Profile="(Default)">200</Value>
+      <Value Profile="(Default)">210</Value>
     </Setting>
     <Setting Name="beddepth" Type="System.String" Scope="User">
-      <Value Profile="(Default)">200</Value>
+      <Value Profile="(Default)">210</Value>
     </Setting>
     <Setting Name="penup" Type="System.String" Scope="User">
       <Value Profile="(Default)">15</Value>
@@ -36,10 +36,10 @@
       <Value Profile="(Default)">1</Value>
     </Setting>
     <Setting Name="offsetx" Type="System.String" Scope="User">
-      <Value Profile="(Default)">20</Value>
+      <Value Profile="(Default)">56</Value>
     </Setting>
     <Setting Name="offsety" Type="System.String" Scope="User">
-      <Value Profile="(Default)">20</Value>
+      <Value Profile="(Default)">16</Value>
     </Setting>
     <Setting Name="default_text" Type="System.String" Scope="User">
       <Value Profile="(Default)">Welcome to 3DWriter!</Value>
@@ -57,7 +57,7 @@
       <Value Profile="(Default)">2</Value>
     </Setting>
     <Setting Name="zspeed" Type="System.String" Scope="User">
-      <Value Profile="(Default)">120</Value>
+      <Value Profile="(Default)">100</Value>
     </Setting>
     <Setting Name="laser" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
