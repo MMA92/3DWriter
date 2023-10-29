@@ -236,6 +236,7 @@ namespace _3DWriter
                 FontComboBox.Items.Add("futural");
                 FontComboBox.Items.Add("scriptc");
                 FontComboBox.Items.Add("scripts");
+                FontComboBox.Items.Add("scriptsUMLAUTS");
             }
             else
             {
@@ -472,8 +473,119 @@ namespace _3DWriter
                     catch
                     {
                         valid = false;
+                   
                     }
+
+
                     
+                    // Generate letter ä
+                    if (thisline.Substring(a, 1)[0] == 'ä')
+                    {
+
+                        cnum = 96;
+                        int start_char_index = 65; // the char to copy
+                        font_chars[cnum] = font_chars[start_char_index];
+                        double[] myArray = new double[font_chars[start_char_index].Length + 8]; //
+                        for (int i = 0; i < font_chars[start_char_index].Length; i++)
+                        {
+                            myArray[i] = font_chars[start_char_index][i];
+                        }
+
+
+                        myArray[font_chars[start_char_index].Length + 0] = 5; // X1
+                        myArray[font_chars[start_char_index].Length + 1] = 13.8; // Y1
+                        myArray[font_chars[start_char_index].Length + 2] = 6;  // X2
+                        myArray[font_chars[start_char_index].Length + 3] = 12; // Y2
+                        
+
+
+                        myArray[font_chars[start_char_index].Length + 4] = 7.5;
+                        myArray[font_chars[start_char_index].Length + 5] = 13.8; // Y1
+                        myArray[font_chars[start_char_index].Length + 6] = 8.5;
+                        myArray[font_chars[start_char_index].Length + 7] = 12; // Y2
+
+
+
+                        font_chars[cnum] = myArray;
+
+                        thewidth = Convert.ToInt32(font_chars[cnum][1]);         //gets the character real width (1)
+                        valid = true;
+
+                    }
+                    // Generate letter ä
+                    if (thisline.Substring(a, 1)[0] == 'ö')
+                    {
+
+                     
+                        cnum = 97;
+                        int start_char_index = 79; // the char to copy
+                        font_chars[cnum] = font_chars[start_char_index];
+                        double[] myArray = new double[font_chars[start_char_index].Length + 8]; //
+                        for (int i = 0; i < font_chars[start_char_index].Length; i++)
+                        {
+                            myArray[i] = font_chars[start_char_index][i];
+                        }
+
+
+                        myArray[font_chars[start_char_index].Length + 0] = 5; // X1
+                        myArray[font_chars[start_char_index].Length + 1] = 13.8; // Y1
+                        myArray[font_chars[start_char_index].Length + 2] = 6;  // X2
+                        myArray[font_chars[start_char_index].Length + 3] = 12; // Y2
+
+
+
+                        myArray[font_chars[start_char_index].Length + 4] = 7.5;
+                        myArray[font_chars[start_char_index].Length + 5] = 13.8; // Y1
+                        myArray[font_chars[start_char_index].Length + 6] = 8.5;
+                        myArray[font_chars[start_char_index].Length + 7] = 12; // Y2
+
+
+
+                        font_chars[cnum] = myArray;
+
+                        thewidth = Convert.ToInt32(font_chars[cnum][1]);         //gets the character real width (1)
+                        valid = true;
+
+                    }
+
+                    // Generate letter ä
+                    if (thisline.Substring(a, 1)[0] == 'ü')
+                    {
+
+
+                        cnum = 97;
+                        int start_char_index = 85; // the char to copy
+                        font_chars[cnum] = font_chars[start_char_index];
+                        double[] myArray = new double[font_chars[start_char_index].Length + 8]; //
+                        for (int i = 0; i < font_chars[start_char_index].Length; i++)
+                        {
+                            myArray[i] = font_chars[start_char_index][i];
+                        }
+
+
+                        myArray[font_chars[start_char_index].Length + 0] = 5; // X1
+                        myArray[font_chars[start_char_index].Length + 1] = 13.8; // Y1
+                        myArray[font_chars[start_char_index].Length + 2] = 6;  // X2
+                        myArray[font_chars[start_char_index].Length + 3] = 12; // Y2
+
+
+
+                        myArray[font_chars[start_char_index].Length + 4] = 7.5;
+                        myArray[font_chars[start_char_index].Length + 5] = 13.8; // Y1
+                        myArray[font_chars[start_char_index].Length + 6] = 8.5;
+                        myArray[font_chars[start_char_index].Length + 7] = 12; // Y2
+
+
+
+                        font_chars[cnum] = myArray;
+
+                        thewidth = Convert.ToInt32(font_chars[cnum][1]);         //gets the character real width (1)
+                        valid = true;
+
+                    }
+
+                  
+
                     if (valid && cnum != 0)                                                  //if the index is 0, this is a space
                     {
                         for (int b = 0; b < font_chars[cnum].Length / 4; b++)       //loop through the stroke x/y pairs
@@ -817,6 +929,28 @@ namespace _3DWriter
         private void checkForUpdateToolStripMenuItem_Click(object sender, EventArgs e)
         {
             CheckVersion(1);
+        }
+
+        private void textBox1_TextChanged(object sender, EventArgs e)
+        {
+
+
+            
+            //conver to float     
+            try
+            {
+                trackBar1.Value = Convert.ToInt32(textBox1.Text);
+                fontscale_value.Text = (trackBar1.Value / 100.0).ToString();
+            }
+            catch
+            {
+                
+            }
+
+            update_font_size();
+
+
+
         }
 
         //Wow you made it, take a break :P
