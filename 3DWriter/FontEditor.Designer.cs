@@ -56,6 +56,7 @@
             this.button5 = new System.Windows.Forms.Button();
             this.btn_add_char = new System.Windows.Forms.Button();
             this.tb_char_to_add = new System.Windows.Forms.TextBox();
+            this.button2 = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.pb_editor)).BeginInit();
             this.SuspendLayout();
             // 
@@ -110,6 +111,7 @@
             this.lv_charmap.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
             this.columnHeader1});
             this.lv_charmap.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.None;
+            this.lv_charmap.HideSelection = false;
             this.lv_charmap.Location = new System.Drawing.Point(15, 69);
             this.lv_charmap.MultiSelect = false;
             this.lv_charmap.Name = "lv_charmap";
@@ -138,6 +140,7 @@
             this.lv_points.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
             this.columnHeader2});
             this.lv_points.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.None;
+            this.lv_points.HideSelection = false;
             this.lv_points.Location = new System.Drawing.Point(516, 114);
             this.lv_points.MultiSelect = false;
             this.lv_points.Name = "lv_points";
@@ -296,11 +299,22 @@
             this.tb_char_to_add.Size = new System.Drawing.Size(25, 20);
             this.tb_char_to_add.TabIndex = 31;
             // 
+            // button2
+            // 
+            this.button2.Location = new System.Drawing.Point(335, 4);
+            this.button2.Name = "button2";
+            this.button2.Size = new System.Drawing.Size(103, 23);
+            this.button2.TabIndex = 32;
+            this.button2.Text = "Open FontFolder";
+            this.button2.UseVisualStyleBackColor = true;
+            this.button2.Click += new System.EventHandler(this.button2_Click);
+            // 
             // FontEditor
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(824, 479);
+            this.Controls.Add(this.button2);
             this.Controls.Add(this.tb_char_to_add);
             this.Controls.Add(this.btn_add_char);
             this.Controls.Add(this.button5);
@@ -365,5 +379,6 @@
         private System.Windows.Forms.Button button5;
         private System.Windows.Forms.Button btn_add_char;
         private System.Windows.Forms.TextBox tb_char_to_add;
+        private System.Windows.Forms.Button button2;
     }
 }

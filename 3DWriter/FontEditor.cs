@@ -252,5 +252,13 @@ namespace _3DWriter
                 writer.Close();
             }
         }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            //open font folder
+
+            System.Diagnostics.Process.Start("explorer.exe", "fonts");
+
+        }
     }
 }
