@@ -748,7 +748,7 @@ namespace _3DWriter
                     writer.Close();
                 }
             }
-            Debug.WriteLine("done generating preview");
+
             toolStripStatusLabel3.Text = "";
 
             if (out_of_bounds) {                                                        //Complain about life
