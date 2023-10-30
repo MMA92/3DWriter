@@ -459,9 +459,15 @@ namespace _3DWriter
                 output += "G0 Z" + penup.Text + " F" + F_travel + "\r\n";           //Pen up before any moves
             }
 
+            toolStripProgressBar1.Visible = true;
+
             string[] lines = (tb_input.Text).Split(new string[] { "\r\n", "\n" }, StringSplitOptions.None); //split the text input up in to lines
             for (int ptr = 0; ptr < lines.Length; ptr++)                            //interate through the lines
             {
+
+                toolStripProgressBar1.Value = ptr;                                  //update the progress bar
+                toolStripProgressBar1.Maximum = lines.Length;
+
                 string thisline = lines[ptr];                                       //gets the line
                 for (int a = 0; a < thisline.Length; a++)                           //interate through each character of the line
                 {
@@ -661,7 +667,14 @@ namespace _3DWriter
                 accum_x = 0;    //CR                                                    //reset the accumulated X value
                 accum_y += char_height + line_spacing;  //LF                            //increment the accumulated Y value plus spacing
                 //end lines loop
+
             }
+
+            toolStripProgressBar1.Value = toolStripProgressBar1.Maximum;
+
+
+
+
             //end of ploting moves
             if (radio_laser_mode.Checked)
             {
@@ -693,8 +706,10 @@ namespace _3DWriter
             string output_filtered = "";
             string lastline="";
             int lines_omitted = 0;
+    
             using (StringReader reader = new StringReader(output))
             {
+
                 string line = string.Empty;
                 do
                 {
@@ -733,6 +748,7 @@ namespace _3DWriter
                     writer.Close();
                 }
             }
+            Debug.WriteLine("done generating preview");
             toolStripStatusLabel3.Text = "";
 
             if (out_of_bounds) {                                                        //Complain about life
@@ -740,6 +756,7 @@ namespace _3DWriter
             }
             button1.Enabled = true;                                                     //re-enable the buttons
             button2.Enabled = true;
+            toolStripProgressBar1.Visible = false;
         }
         
         private void update_bed_size()
