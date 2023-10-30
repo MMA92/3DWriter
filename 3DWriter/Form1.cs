@@ -186,7 +186,15 @@ namespace _3DWriter
             {
                 LoadSettings(); //reads the application settings and fills in all the UI components
                 LoadFonts(toolStripButton2.Checked);    //fills in the font selection combobox
-                load_font(Properties.Settings.Default.default_font);    //reads the selected font file in to memory
+                try { 
+                    load_font(Properties.Settings.Default.default_font); //reads the selected font file in to memory
+                } 
+                catch {
+                    load_font("scripts"); //reads the selected font file in to memory
+                    Properties.Settings.Default.default_font = "scripts";
+                    FontComboBox.Text = "scripts";
+                }               
+
             }
             CheckVersion(0);
         }
