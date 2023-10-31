@@ -468,6 +468,7 @@ namespace _3DWriter
                 toolStripProgressBar1.Value = ptr;                                  //update the progress bar
                 toolStripProgressBar1.Maximum = lines.Length;
 
+
                 string thisline = lines[ptr];                                       //gets the line
                 for (int a = 0; a < thisline.Length; a++)                           //interate through each character of the line
                 {
@@ -475,21 +476,40 @@ namespace _3DWriter
                     //Language other than english won't map correctly here
                     //int cnum = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~".IndexOf(thisline.Substring(a, 1)); //font map is now read from the cmf font file
                     int cnum = 0;
-                    bool valid = true;
                     double thewidth = 0;
-                    try
+
+
+                    //add ä to string
+                    if  (FontComboBox.Text =="scriptsUMLAUTS")
                     {
-                        //check to see if we have that character
-                        cnum = h_font_map.IndexOf(thisline.Substring(a, 1));
-                        //double thewidth = Convert.ToInt32(font_chars[cnum][0]);         //gets the character width (0)
-                        thewidth = Convert.ToInt32(font_chars[cnum][1]);         //gets the character real width (1)
-                    }
-                    catch
-                    {
-                        valid = false;
-                   
+                        h_font_map += "äöü";
                     }
 
+                  
+  
+                   
+                        //check to see if we have that character
+                    cnum = h_font_map.IndexOf(thisline.Substring(a, 1));
+
+                    if (cnum == -1) {
+                        //Show error message
+                        MessageBox.Show($"Character {thisline.Substring(a, 1)} is not part of the Character Subset \r\nMake sure scriptsUMLAUTS is selected",
+                            "Error",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+
+                        button1.Enabled = true; //re-enable the buttons
+                        button2.Enabled = true;
+                        toolStripProgressBar1.Visible = false;
+
+
+                        return;
+
+                    }
+
+                    //double thewidth = Convert.ToInt32(font_chars[cnum][0]);  //gets the character width (0)
+                    thewidth = Convert.ToInt32(font_chars[cnum][1]);         //gets the character real width (1)
+               
 
                     
                     // Generate letter ä
@@ -523,7 +543,6 @@ namespace _3DWriter
                         font_chars[cnum] = myArray;
 
                         thewidth = Convert.ToInt32(font_chars[cnum][1]);         //gets the character real width (1)
-                        valid = true;
 
                     }
                     // Generate letter ä
@@ -558,7 +577,6 @@ namespace _3DWriter
                         font_chars[cnum] = myArray;
 
                         thewidth = Convert.ToInt32(font_chars[cnum][1]);         //gets the character real width (1)
-                        valid = true;
 
                     }
 
@@ -594,13 +612,12 @@ namespace _3DWriter
                         font_chars[cnum] = myArray;
 
                         thewidth = Convert.ToInt32(font_chars[cnum][1]);         //gets the character real width (1)
-                        valid = true;
 
                     }
 
                   
 
-                    if (valid && cnum != 0)                                                  //if the index is 0, this is a space
+                    if (cnum != 0)                                                  //if the index is 0, this is a space
                     {
                         for (int b = 0; b < font_chars[cnum].Length / 4; b++)       //loop through the stroke x/y pairs
                         {
