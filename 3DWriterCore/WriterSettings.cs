@@ -20,7 +20,8 @@ public sealed class WriterSettings
     public bool HomeY = true;
     public bool HomeZ = true;
     public bool LaserMode = false;
-    public string PenUp = "50";   // Z height in pen mode, raw GCode line in laser mode (e.g. "M5")
-    public string PenDown = "45";
+    public string PenUp = "12";   // Z height in pen mode, raw GCode line in laser mode (e.g. "M5")
+    public string PenDown = "8";
+    public double InitialClearance = 30; // Z height for the one-off lift right after homing (pen mode only) - extra margin before the first travel move, e.g. when the bed sits higher than expected after homing
     public bool DryRun = false;
 }

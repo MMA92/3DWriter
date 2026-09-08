@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using Avalonia;
@@ -189,6 +190,9 @@ public partial class MainWindow : Window
             BedHeight = BedHeight,
             OffsetX = OffsetX,
             OffsetY = OffsetY,
+            PenUp = ((double)(PenUpBox.Value ?? 12m)).ToString(CultureInfo.InvariantCulture),
+            PenDown = ((double)(PenDownBox.Value ?? 8m)).ToString(CultureInfo.InvariantCulture),
+            InitialClearance = (double)(InitialClearanceBox.Value ?? 30m),
         };
 
         try

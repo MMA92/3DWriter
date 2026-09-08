@@ -41,6 +41,7 @@ for (int i = 0; i < args.Length; i++)
         case "--z-speed": s.ZSpeed = NextD(); break;
         case "--pen-up": s.PenUp = Next(); break;
         case "--pen-down": s.PenDown = Next(); break;
+        case "--initial-clearance": s.InitialClearance = NextD(); break;
         case "--no-home-x": s.HomeX = false; break;
         case "--no-home-y": s.HomeY = false; break;
         case "--no-home-z": s.HomeZ = false; break;
@@ -115,8 +116,9 @@ static void PrintHelp()
       --travel-speed <mm/s>    (default: 100)
       --draw-speed <mm/s>      (default: 40)
       --z-speed <mm/s>         (default: 40)
-      --pen-up <z-or-gcode>    (default: 50)
-      --pen-down <z-or-gcode>  (default: 45)
+      --pen-up <z-or-gcode>    (default: 12)
+      --pen-down <z-or-gcode>  (default: 8)
+      --initial-clearance <mm> One-off Z lift right after homing, pen mode only (default: 30)
       --no-home-x/-y/-z        Disable homing that axis before/after writing
       --laser                  Laser mode (uses M4/M5 unless --pen-up/-down override)
       --dry-run                Never lower the pen / turn on the laser

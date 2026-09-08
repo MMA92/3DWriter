@@ -51,21 +51,22 @@ public static class GCodeGenerator
         void Line(string l) => g.Append(l).Append("\r\n");
         static string F(double v) => v.ToString(CultureInfo.InvariantCulture);
 
-        Line("; Generated with 3DWriter-cli");
-        Line($"; Font: {fontName}");
-        Line($"; FontScale: {F(charHeight)}mm ({F(s.Scale)})");
-        Line($"; Bed: {F(s.BedWidth)} x {F(s.BedHeight)}");
-        Line($"; Offset: {F(s.OffsetX)} x {F(s.OffsetY)}");
-        Line($"; Draw mode: {(s.LaserMode ? "Laser" : "Pen")}");
-        Line($"; Pen Up: {s.PenUp}");
-        Line($"; Pen Down: {s.PenDown}");
-        Line($"; Home: {(s.HomeX ? "X" : "")}{(s.HomeY ? "Y" : "")}{(s.HomeZ ? "Z" : "")}");
-        Line($"; Dry run: {(s.DryRun ? "ON" : "OFF")}");
+        Line("; Generated with 3DWriter-cli");             // Zeile 1: nur Info, kein G-Code
+        Line($"; Font: {fontName}");                        // Zeile 2
+        Line($"; FontScale: {F(charHeight)}mm ({F(s.Scale)})"); // Zeile 3
+        Line($"; Bed: {F(s.BedWidth)} x {F(s.BedHeight)}"); // Zeile 4
+        Line($"; Offset: {F(s.OffsetX)} x {F(s.OffsetY)}"); // Zeile 5
+        Line($"; Draw mode: {(s.LaserMode ? "Laser" : "Pen")}"); // Zeile 6
+        Line($"; Pen Up: {s.PenUp}");                       // Zeile 7
+        Line($"; Pen Down: {s.PenDown}");                   // Zeile 8
+        Line($"; Home: {(s.HomeX ? "X" : "")}{(s.HomeY ? "Y" : "")}{(s.HomeZ ? "Z" : "")}"); // Zeile 9
+        Line($"; Dry run: {(s.DryRun ? "ON" : "OFF")}");    // Zeile 10 - Ende Kommentarblock
 
         if (s.HomeX || s.HomeY || s.HomeZ)
             Line($"G28 {(s.HomeX ? "X" : "")} {(s.HomeY ? "Y" : "")} {(s.HomeZ ? "Z" : "")} F{fTravel}");
+            // Zeile 11: G28 X Y Z - alle 3 Achsen homen (Referenzfahrt), mit Anfahrgeschw. fTravel
 
-        Line("G21"); // millimeters
+        Line("G21"); // millimeters                        // Zeile 12: Einheiten auf mm
         if (s.LaserMode)
         {
             Line("M452"); // laser print mode
@@ -76,7 +77,7 @@ public static class GCodeGenerator
         }
         else
         {
-            Line($"G0 Z{s.PenUp} F{fTravel}"); // pen up before any moves
+            Line($"G0 Z{F(s.InitialClearance)} F{fTravel}"); // Zeile 13: einmaliger Extra-Hub direkt nach dem Homen (höher als das normale PenUp danach)
         }
 
         foreach (var rawLine in text.Replace("\r\n", "\n").Split('\n'))
@@ -111,14 +112,17 @@ public static class GCodeGenerator
 
                         if (lastX == gx1 && lastY == testY1)
                         {
+                            // Folge-Strich hängt nahtlos am letzten an (z.B. beim "W"): Stift bleibt
+                            // unten, einfach zur nächsten Position weiterzeichnen (kein Pen-Up nötig).
                             Line($"G1 X{F(gx1)} Y{F(gy1)} F{(firstMove ? fTravel : fDraw)}");
                             firstMove = false;
                         }
                         else
                         {
-                            Line(s.LaserMode ? s.PenUp : $"G0 Z{s.PenUp} F{fZ}");
-                            Line($"G0 X{F(gx1)} Y{F(gy1)} F{fTravel}");
-                            Line(s.LaserMode ? (s.DryRun ? s.PenUp : s.PenDown) : $"G0 Z{(s.DryRun ? s.PenUp : s.PenDown)} F{fZ}");
+                            // Neuer, nicht anschließender Strich - Stift muss "umgesetzt" werden:
+                            Line(s.LaserMode ? s.PenUp : $"G0 Z{s.PenUp} F{fZ}");     // Zeile 14/16: Stift hoch (PenUp)
+                            Line($"G0 X{F(gx1)} Y{F(gy1)} F{fTravel}");               // Zeile 15: zur Start-Position des Strichs fahren (Stift schwebt)
+                            Line(s.LaserMode ? (s.DryRun ? s.PenUp : s.PenDown) : $"G0 Z{(s.DryRun ? s.PenUp : s.PenDown)} F{fZ}"); // Zeile 16: Stift runter (PenDown) - jetzt berührt er das Papier
                         }
 
                         if (gx1 > s.BedWidth || gx1 < 0) outOfBounds = true;
@@ -127,6 +131,10 @@ public static class GCodeGenerator
                         double gx2 = accumX + x2 + s.OffsetX;
                         double gy2 = (charHeight - y2) + (s.BedHeight - s.OffsetY) - accumY - charHeight;
                         Line($"G1 X{F(gx2)} Y{F(gy2)} F{fDraw}");
+                        // Zeile 17/19: der eigentliche Zeichenstrich - Stift ist unten (aus Zeile 16),
+                        // fährt mit Zeichengeschwindigkeit (fDraw) vom Strich-Start zum Strich-Ende.
+                        // Nächste Schleifenrunde: wenn ihr Start == dieser Endpunkt, siehe Zeile 112-116
+                        // oben (nahtloser Folge-Strich, erzeugt das doppelte G1 wie Zeile 17+18/19+20).
 
                         lastX = gx2;
                         lastY = (charHeight - y2) + (s.BedHeight - s.OffsetY);

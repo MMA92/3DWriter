@@ -33,6 +33,15 @@
                 <NumericUpDown Name="OffsetYBox" Minimum="0" Maximum="2000" Value="45" Increment="1" FormatString="0" Width="135"/>
             </StackPanel>
 
+            <TextBlock Text="Pen height Z (mm)" FontWeight="Bold"/>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <NumericUpDown Name="PenUpBox" Minimum="0" Maximum="200" Value="12" Increment="0.5" FormatString="0.0" Width="135"/>
+                <TextBlock Text="up/down" VerticalAlignment="Center"/>
+                <NumericUpDown Name="PenDownBox" Minimum="0" Maximum="200" Value="8" Increment="0.5" FormatString="0.0" Width="135"/>
+            </StackPanel>
+            <TextBlock Text="Initial clearance after homing (mm)" FontWeight="Bold"/>
+            <NumericUpDown Name="InitialClearanceBox" Minimum="0" Maximum="200" Value="30" Increment="0.5" FormatString="0.0" Width="135"/>
+
             <TextBlock Text="Boxes" FontWeight="Bold"/>
             <TextBlock Text="Drag on the preview to draw a box." TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
             <Button Name="ClearBoxesButton" Content="Clear boxes" HorizontalAlignment="Stretch" Click="OnClearBoxesClick"/>
