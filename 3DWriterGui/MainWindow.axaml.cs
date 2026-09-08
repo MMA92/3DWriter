@@ -29,15 +29,20 @@ public partial class MainWindow : Window
     private static readonly IBrush OffsetLineBrush = new SolidColorBrush(Color.FromArgb(110, 255, 0, 0));
     private static readonly JsonSerializerOptions BoxesJsonOptions = new() { PropertyNameCaseInsensitive = true };
 
+    private const int MaxHistory = 10;
     private readonly string _fontsDir;
     private readonly List<GCodeGenerator.Box> _boxes = new();
     private readonly List<int> _boxGroups = new(); // parallel to _boxes: boxes from one load/draw move together
     private int _nextGroupId;
+    private readonly List<BoxesSnapshot> _undoStack = new();
+    private readonly List<BoxesSnapshot> _redoStack = new();
     private string? _lastGCode;
     private Point? _dragStart;
     private Rectangle? _dragGhost;
     private List<(Rectangle Rect, double Left, double Top, int Index)>? _dragGroup;
     private Point _dragStartPointer;
+
+    private readonly record struct BoxesSnapshot(List<GCodeGenerator.Box> Boxes, List<int> Groups);
 
     public MainWindow()
     {
@@ -202,6 +207,7 @@ public partial class MainWindow : Window
     {
         if (_dragGroup is not null)
         {
+            SaveUndoState();
             foreach (var item in _dragGroup)
             {
                 _boxes[item.Index] = _boxes[item.Index] with
@@ -227,6 +233,7 @@ public partial class MainWindow : Window
         _dragStart = null;
         if (w < 3 || h < 3) return; // ignore accidental clicks
 
+        SaveUndoState();
         var box = new GCodeGenerator.Box(x / PixelsPerMm, y / PixelsPerMm, w / PixelsPerMm, h / PixelsPerMm);
         _boxes.Add(box);
         _boxGroups.Add(_nextGroupId++);
@@ -237,9 +244,55 @@ public partial class MainWindow : Window
 
     private void OnClearBoxesClick(object? sender, RoutedEventArgs e)
     {
+        if (_boxes.Count == 0) return;
+        SaveUndoState();
         _boxes.Clear();
         _boxGroups.Clear();
         UpdateCanvasFrame();
+    }
+
+    /// <summary>Snapshots the current boxes before a mutation, capped at the last MaxHistory
+    /// commands. Any pending redo is discarded, since it no longer follows from this state.</summary>
+    private void SaveUndoState()
+    {
+        _undoStack.Add(new BoxesSnapshot(new List<GCodeGenerator.Box>(_boxes), new List<int>(_boxGroups)));
+        if (_undoStack.Count > MaxHistory) _undoStack.RemoveAt(0);
+        _redoStack.Clear();
+        UpdateUndoRedoButtons();
+    }
+
+    private void RestoreState(List<BoxesSnapshot> from, List<BoxesSnapshot> to)
+    {
+        to.Add(new BoxesSnapshot(new List<GCodeGenerator.Box>(_boxes), new List<int>(_boxGroups)));
+        if (to.Count > MaxHistory) to.RemoveAt(0);
+
+        var state = from[^1];
+        from.RemoveAt(from.Count - 1);
+        _boxes.Clear();
+        _boxes.AddRange(state.Boxes);
+        _boxGroups.Clear();
+        _boxGroups.AddRange(state.Groups);
+
+        UpdateCanvasFrame();
+        UpdateUndoRedoButtons();
+    }
+
+    private void OnUndoClick(object? sender, RoutedEventArgs e)
+    {
+        if (_undoStack.Count == 0) return;
+        RestoreState(_undoStack, _redoStack);
+    }
+
+    private void OnRedoClick(object? sender, RoutedEventArgs e)
+    {
+        if (_redoStack.Count == 0) return;
+        RestoreState(_redoStack, _undoStack);
+    }
+
+    private void UpdateUndoRedoButtons()
+    {
+        UndoButton.IsEnabled = _undoStack.Count > 0;
+        RedoButton.IsEnabled = _redoStack.Count > 0;
     }
 
     private async void OnLoadBoxesClick(object? sender, RoutedEventArgs e)
@@ -281,6 +334,7 @@ public partial class MainWindow : Window
                 return;
             }
 
+            SaveUndoState();
             int group = _nextGroupId++;
             _boxes.AddRange(boxes);
             _boxGroups.AddRange(Enumerable.Repeat(group, boxes.Count));

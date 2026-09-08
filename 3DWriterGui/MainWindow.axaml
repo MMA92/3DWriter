@@ -46,6 +46,10 @@
             <TextBlock Text="Drag on empty preview to draw a box, drag an existing box to move it, or drop/load a boxes JSON file." TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
             <Button Name="LoadBoxesButton" Content="Load boxes (JSON)..." HorizontalAlignment="Stretch" Click="OnLoadBoxesClick"/>
             <Button Name="ClearBoxesButton" Content="Clear boxes" HorizontalAlignment="Stretch" Click="OnClearBoxesClick"/>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Name="UndoButton" Content="Undo" Width="103" Click="OnUndoClick" IsEnabled="False"/>
+                <Button Name="RedoButton" Content="Redo" Width="103" Click="OnRedoClick" IsEnabled="False"/>
+            </StackPanel>
 
             <Button Name="RenderButton" Content="Render" HorizontalAlignment="Stretch" Click="OnRenderClick"/>
             <Button Name="SaveButton" Content="Save GCode..." HorizontalAlignment="Stretch" Click="OnSaveClick" IsEnabled="False"/>
