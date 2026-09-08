@@ -43,7 +43,8 @@
             <NumericUpDown Name="InitialClearanceBox" Minimum="0" Maximum="200" Value="30" Increment="0.5" FormatString="0.0" Width="135"/>
 
             <TextBlock Text="Boxes" FontWeight="Bold"/>
-            <TextBlock Text="Drag on the preview to draw a box." TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
+            <TextBlock Text="Drag on empty preview to draw a box, drag an existing box to move it, or drop/load a boxes JSON file." TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
+            <Button Name="LoadBoxesButton" Content="Load boxes (JSON)..." HorizontalAlignment="Stretch" Click="OnLoadBoxesClick"/>
             <Button Name="ClearBoxesButton" Content="Clear boxes" HorizontalAlignment="Stretch" Click="OnClearBoxesClick"/>
 
             <Button Name="RenderButton" Content="Render" HorizontalAlignment="Stretch" Click="OnRenderClick"/>
@@ -59,7 +60,7 @@
                 <Slider Name="ZoomSlider" Minimum="0.25" Maximum="8" Value="1" SmallChange="0.1"/>
             </DockPanel>
 
-            <Border Grid.Row="1" Name="PreviewBorder" BorderBrush="Gray" BorderThickness="1" Background="Gainsboro">
+            <Border Grid.Row="1" Name="PreviewBorder" BorderBrush="Gray" BorderThickness="1" Background="Gainsboro" DragDrop.AllowDrop="True">
                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                     <LayoutTransformControl>
                         <LayoutTransformControl.LayoutTransform>

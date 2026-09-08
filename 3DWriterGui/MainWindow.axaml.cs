@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
@@ -26,12 +27,17 @@ public partial class MainWindow : Window
 {
     private const double PixelsPerMm = 2.0; // matches the original app's default preview magnification
     private static readonly IBrush OffsetLineBrush = new SolidColorBrush(Color.FromArgb(110, 255, 0, 0));
+    private static readonly JsonSerializerOptions BoxesJsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly string _fontsDir;
     private readonly List<GCodeGenerator.Box> _boxes = new();
+    private readonly List<int> _boxGroups = new(); // parallel to _boxes: boxes from one load/draw move together
+    private int _nextGroupId;
     private string? _lastGCode;
     private Point? _dragStart;
     private Rectangle? _dragGhost;
+    private List<(Rectangle Rect, double Left, double Top, int Index)>? _dragGroup;
+    private Point _dragStartPointer;
 
     public MainWindow()
     {
@@ -69,6 +75,9 @@ public partial class MainWindow : Window
         PreviewCanvas.PointerMoved += OnCanvasPointerMoved;
         PreviewCanvas.PointerReleased += OnCanvasPointerReleased;
 
+        PreviewBorder.AddHandler(DragDrop.DragOverEvent, OnPreviewDragOver);
+        PreviewBorder.AddHandler(DragDrop.DropEvent, OnPreviewDrop);
+
         UpdateCanvasFrame();
     }
 
@@ -103,10 +112,10 @@ public partial class MainWindow : Window
             StrokeThickness = 1.5,
         });
 
-        foreach (var box in _boxes) AddBoxVisual(box);
+        for (int i = 0; i < _boxes.Count; i++) AddBoxVisual(_boxes[i], i);
     }
 
-    private void AddBoxVisual(GCodeGenerator.Box box)
+    private void AddBoxVisual(GCodeGenerator.Box box, int index)
     {
         var rect = new Rectangle
         {
@@ -114,10 +123,31 @@ public partial class MainWindow : Window
             Height = box.Height * PixelsPerMm,
             Stroke = Brushes.Black,
             StrokeThickness = 1.5,
+            Fill = Brushes.Transparent, // makes the whole box (not just its outline) hit-testable for dragging
+            Cursor = new Cursor(StandardCursorType.SizeAll),
+            Tag = index,
         };
         Canvas.SetLeft(rect, box.X * PixelsPerMm);
         Canvas.SetTop(rect, box.Y * PixelsPerMm);
+        rect.PointerPressed += OnBoxPointerPressed;
         PreviewCanvas.Children.Add(rect);
+    }
+
+    /// <summary>Starts moving an existing box instead of drawing a new one; e.Handled stops
+    /// the click from also reaching OnCanvasPointerPressed (bubbles from rect to canvas). Boxes
+    /// loaded from the same JSON file (or drawn as one box) share a group id and move together
+    /// as a rigid unit, whichever one of them was grabbed.</summary>
+    private void OnBoxPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(PreviewCanvas).Properties.IsLeftButtonPressed) return;
+        int group = _boxGroups[(int)((Rectangle)sender!).Tag!];
+        _dragGroup = PreviewCanvas.Children.OfType<Rectangle>()
+            .Where(r => r.Tag is int idx && _boxGroups[idx] == group)
+            .Select(r => (Rect: r, Left: Canvas.GetLeft(r), Top: Canvas.GetTop(r), Index: (int)r.Tag!))
+            .ToList();
+        _dragStartPointer = e.GetPosition(PreviewCanvas);
+        e.Pointer.Capture(PreviewCanvas);
+        e.Handled = true;
     }
 
     private void OnCanvasPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -137,6 +167,28 @@ public partial class MainWindow : Window
 
     private void OnCanvasPointerMoved(object? sender, PointerEventArgs e)
     {
+        if (_dragGroup is not null)
+        {
+            var pos = e.GetPosition(PreviewCanvas);
+            double dx = pos.X - _dragStartPointer.X;
+            double dy = pos.Y - _dragStartPointer.Y;
+
+            // Clamp the delta against the group's combined bounding box so the whole unit
+            // stays on the bed and none of its boxes get left behind or resized.
+            double minLeft = _dragGroup.Min(i => i.Left);
+            double minTop = _dragGroup.Min(i => i.Top);
+            double maxRight = _dragGroup.Max(i => i.Left + i.Rect.Width);
+            double maxBottom = _dragGroup.Max(i => i.Top + i.Rect.Height);
+            dx = Math.Clamp(dx, -minLeft, PreviewCanvas.Width - maxRight);
+            dy = Math.Clamp(dy, -minTop, PreviewCanvas.Height - maxBottom);
+
+            foreach (var item in _dragGroup)
+            {
+                Canvas.SetLeft(item.Rect, item.Left + dx);
+                Canvas.SetTop(item.Rect, item.Top + dy);
+            }
+            return;
+        }
         if (_dragStart is not { } start || _dragGhost is null) return;
         var p = e.GetPosition(PreviewCanvas);
         double x = Math.Min(start.X, p.X), y = Math.Min(start.Y, p.Y);
@@ -148,6 +200,22 @@ public partial class MainWindow : Window
 
     private void OnCanvasPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
+        if (_dragGroup is not null)
+        {
+            foreach (var item in _dragGroup)
+            {
+                _boxes[item.Index] = _boxes[item.Index] with
+                {
+                    X = Canvas.GetLeft(item.Rect) / PixelsPerMm,
+                    Y = Canvas.GetTop(item.Rect) / PixelsPerMm,
+                };
+            }
+            _dragGroup = null;
+            e.Pointer.Capture(null);
+            _lastGCode = null;
+            SaveButton.IsEnabled = false;
+            return;
+        }
         if (_dragStart is not { } start || _dragGhost is null) return;
         PreviewCanvas.Children.Remove(_dragGhost);
         _dragGhost = null;
@@ -161,7 +229,8 @@ public partial class MainWindow : Window
 
         var box = new GCodeGenerator.Box(x / PixelsPerMm, y / PixelsPerMm, w / PixelsPerMm, h / PixelsPerMm);
         _boxes.Add(box);
-        AddBoxVisual(box);
+        _boxGroups.Add(_nextGroupId++);
+        AddBoxVisual(box, _boxes.Count - 1);
         _lastGCode = null;
         SaveButton.IsEnabled = false;
     }
@@ -169,7 +238,61 @@ public partial class MainWindow : Window
     private void OnClearBoxesClick(object? sender, RoutedEventArgs e)
     {
         _boxes.Clear();
+        _boxGroups.Clear();
         UpdateCanvasFrame();
+    }
+
+    private async void OnLoadBoxesClick(object? sender, RoutedEventArgs e)
+    {
+        var storage = GetTopLevel(this)?.StorageProvider;
+        if (storage is null) return;
+
+        var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            FileTypeFilter = new[] { new FilePickerFileType("Boxes JSON") { Patterns = new[] { "*.json" } } },
+        });
+
+        if (files.Count > 0) await LoadBoxesFromFileAsync(files[0]);
+    }
+
+    private void OnPreviewDragOver(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = e.Data.Contains(DataFormats.Files) ? DragDropEffects.Copy : DragDropEffects.None;
+    }
+
+    private async void OnPreviewDrop(object? sender, DragEventArgs e)
+    {
+        var file = e.Data.GetFiles()?.OfType<IStorageFile>().FirstOrDefault();
+        if (file is not null) await LoadBoxesFromFileAsync(file);
+    }
+
+    private async System.Threading.Tasks.Task LoadBoxesFromFileAsync(IStorageFile file)
+    {
+        try
+        {
+            await using var stream = await file.OpenReadAsync();
+            using var reader = new StreamReader(stream);
+            var json = await reader.ReadToEndAsync();
+            var boxes = JsonSerializer.Deserialize<List<GCodeGenerator.Box>>(json, BoxesJsonOptions);
+            if (boxes is null || boxes.Count == 0)
+            {
+                StatusText.Foreground = Brushes.Crimson;
+                StatusText.Text = "Boxes JSON was empty or invalid.";
+                return;
+            }
+
+            int group = _nextGroupId++;
+            _boxes.AddRange(boxes);
+            _boxGroups.AddRange(Enumerable.Repeat(group, boxes.Count));
+            UpdateCanvasFrame();
+            StatusText.Foreground = Brushes.Gray;
+            StatusText.Text = $"Loaded {boxes.Count} box(es) from {file.Name}.";
+        }
+        catch (Exception ex) when (ex is JsonException or IOException)
+        {
+            StatusText.Foreground = Brushes.Crimson;
+            StatusText.Text = $"Failed to load boxes: {ex.Message}";
+        }
     }
 
     private void OnRenderClick(object? sender, RoutedEventArgs e)
