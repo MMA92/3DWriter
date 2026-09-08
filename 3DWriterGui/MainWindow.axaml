@@ -19,16 +19,47 @@
                 <Slider Name="ScaleSlider" Minimum="0.05" Maximum="1.0" Value="0.2" SmallChange="0.01"/>
             </DockPanel>
 
+            <TextBlock Text="Bed size (mm)" FontWeight="Bold"/>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <NumericUpDown Name="BedWidthBox" Minimum="10" Maximum="2000" Value="200" Increment="5" FormatString="0" Width="135"/>
+                <TextBlock Text="x" VerticalAlignment="Center"/>
+                <NumericUpDown Name="BedHeightBox" Minimum="10" Maximum="2000" Value="200" Increment="5" FormatString="0" Width="135"/>
+            </StackPanel>
+
+            <TextBlock Text="Text offset (mm)" FontWeight="Bold"/>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <NumericUpDown Name="OffsetXBox" Minimum="0" Maximum="2000" Value="45" Increment="1" FormatString="0" Width="135"/>
+                <TextBlock Text="x" VerticalAlignment="Center"/>
+                <NumericUpDown Name="OffsetYBox" Minimum="0" Maximum="2000" Value="45" Increment="1" FormatString="0" Width="135"/>
+            </StackPanel>
+
+            <TextBlock Text="Boxes" FontWeight="Bold"/>
+            <TextBlock Text="Drag on the preview to draw a box." TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
+            <Button Name="ClearBoxesButton" Content="Clear boxes" HorizontalAlignment="Stretch" Click="OnClearBoxesClick"/>
+
             <Button Name="RenderButton" Content="Render" HorizontalAlignment="Stretch" Click="OnRenderClick"/>
             <Button Name="SaveButton" Content="Save GCode..." HorizontalAlignment="Stretch" Click="OnSaveClick" IsEnabled="False"/>
 
             <TextBlock Name="StatusText" TextWrapping="Wrap" Foreground="Crimson"/>
         </StackPanel>
 
-        <Border Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Background="White">
-            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                <Canvas Name="PreviewCanvas" Width="400" Height="400" Background="White"/>
-            </ScrollViewer>
-        </Border>
+        <Grid Grid.Column="1" RowDefinitions="Auto,*">
+            <DockPanel Grid.Row="0" Margin="0,0,0,6">
+                <TextBlock Text="Zoom" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBlock Name="ZoomValueText" DockPanel.Dock="Right" Width="50" VerticalAlignment="Center"/>
+                <Slider Name="ZoomSlider" Minimum="0.25" Maximum="8" Value="1" SmallChange="0.1"/>
+            </DockPanel>
+
+            <Border Grid.Row="1" Name="PreviewBorder" BorderBrush="Gray" BorderThickness="1" Background="Gainsboro">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <LayoutTransformControl>
+                        <LayoutTransformControl.LayoutTransform>
+                            <ScaleTransform ScaleX="{Binding #ZoomSlider.Value}" ScaleY="{Binding #ZoomSlider.Value}"/>
+                        </LayoutTransformControl.LayoutTransform>
+                        <Canvas Name="PreviewCanvas" Background="White"/>
+                    </LayoutTransformControl>
+                </ScrollViewer>
+            </Border>
+        </Grid>
     </Grid>
 </Window>
