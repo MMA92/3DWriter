@@ -1,0 +1,8 @@
+[
+  { "X": 0,  "Y": 8,  "Width": 40, "Height": 4 },
+  { "X": 40, "Y": 0,  "Width": 6,  "Height": 4 },
+  { "X": 40, "Y": 4,  "Width": 12, "Height": 4 },
+  { "X": 40, "Y": 8,  "Width": 20, "Height": 4 },
+  { "X": 40, "Y": 12, "Width": 12, "Height": 4 },
+  { "X": 40, "Y": 16, "Width": 6,  "Height": 4 }
+]

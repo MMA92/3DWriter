@@ -2,11 +2,19 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+        mc:Ignorable="d" d:DesignWidth="1060" d:DesignHeight="600"
         x:Class="WriterGui.MainWindow"
-        Title="3DWriter" Width="900" Height="600">
-    <Grid ColumnDefinitions="320,*" Margin="10">
-        <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,10,0">
+        Title="3DWriter" Width="1060" Height="600">
+    <Grid ColumnDefinitions="140,320,*" Margin="10">
+        <DockPanel Grid.Column="0" Margin="0,0,10,0">
+            <TextBlock DockPanel.Dock="Top" Text="Forms" FontWeight="Bold" Margin="0,0,0,6"/>
+            <TextBlock DockPanel.Dock="Top" Text="Drag a form onto the preview to add it." TextWrapping="Wrap" Foreground="Gray" FontSize="11" Margin="0,0,0,6"/>
+            <ScrollViewer>
+                <StackPanel Name="FormsPanel" Spacing="10"/>
+            </ScrollViewer>
+        </DockPanel>
+
+        <StackPanel Grid.Column="1" Spacing="8" Margin="0,0,10,0">
             <TextBlock Text="Text" FontWeight="Bold"/>
             <TextBox Name="TextInputBox" AcceptsReturn="True" Height="100" Text="Welcome to 3DWriter!"/>
 
@@ -57,7 +65,7 @@
             <TextBlock Name="StatusText" TextWrapping="Wrap" Foreground="Crimson"/>
         </StackPanel>
 
-        <Grid Grid.Column="1" RowDefinitions="Auto,*">
+        <Grid Grid.Column="2" RowDefinitions="Auto,*">
             <DockPanel Grid.Row="0" Margin="0,0,0,6">
                 <TextBlock Text="Zoom" VerticalAlignment="Center" Margin="0,0,6,0"/>
                 <TextBlock Name="ZoomValueText" DockPanel.Dock="Right" Width="50" VerticalAlignment="Center"/>

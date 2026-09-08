@@ -84,6 +84,100 @@ public partial class MainWindow : Window
         PreviewBorder.AddHandler(DragDrop.DropEvent, OnPreviewDrop);
 
         UpdateCanvasFrame();
+        PopulateFormsSidebar();
+    }
+
+    /// <summary>Scans fonts-dir-sibling "forms" for *.json box files and lists each as a
+    /// dynamically drawn thumbnail in the left sidebar; dragging one onto the preview loads
+    /// it the same way an OS file drop does (see OnFormItemPointerPressed).</summary>
+    private void PopulateFormsSidebar()
+    {
+        var formsDir = Path.Combine(AppContext.BaseDirectory, "forms");
+        if (!Directory.Exists(formsDir)) return;
+
+        foreach (var file in Directory.GetFiles(formsDir, "*.json").OrderBy(f => f))
+        {
+            List<GCodeGenerator.Box>? boxes;
+            try
+            {
+                boxes = JsonSerializer.Deserialize<List<GCodeGenerator.Box>>(File.ReadAllText(file), BoxesJsonOptions);
+            }
+            catch (JsonException)
+            {
+                continue; // skip files that aren't valid boxes JSON
+            }
+            if (boxes is null || boxes.Count == 0) continue;
+
+            FormsPanel.Children.Add(BuildFormListItem(Path.GetFileNameWithoutExtension(file), boxes, file));
+        }
+    }
+
+    private const double FormThumbSize = 96;
+
+    private Control BuildFormListItem(string name, List<GCodeGenerator.Box> boxes, string filePath)
+    {
+        double minX = boxes.Min(b => b.X), minY = boxes.Min(b => b.Y);
+        double w = Math.Max(boxes.Max(b => b.X + b.Width) - minX, 0.001);
+        double h = Math.Max(boxes.Max(b => b.Y + b.Height) - minY, 0.001);
+        double scale = Math.Min(FormThumbSize / w, FormThumbSize / h);
+
+        var canvas = new Canvas { Width = FormThumbSize, Height = FormThumbSize };
+        foreach (var b in boxes)
+        {
+            var rect = new Rectangle
+            {
+                Width = b.Width * scale,
+                Height = b.Height * scale,
+                Stroke = Brushes.Black,
+                StrokeThickness = 1,
+                Fill = new SolidColorBrush(Colors.LightSteelBlue, 0.4),
+            };
+            Canvas.SetLeft(rect, (b.X - minX) * scale);
+            Canvas.SetTop(rect, (b.Y - minY) * scale);
+            canvas.Children.Add(rect);
+        }
+
+        var thumb = new Border
+        {
+            Width = FormThumbSize,
+            Height = FormThumbSize,
+            BorderBrush = Brushes.Gray,
+            BorderThickness = new Thickness(1),
+            Background = Brushes.White,
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Tag = filePath,
+            Child = canvas,
+        };
+        thumb.PointerPressed += OnFormItemPointerPressed;
+
+        var item = new StackPanel { Spacing = 4 };
+        item.Children.Add(thumb);
+        item.Children.Add(new TextBlock
+        {
+            Text = name,
+            FontSize = 10,
+            Width = FormThumbSize,
+            TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap,
+        });
+        return item;
+    }
+
+    /// <summary>Starts an OS-level drag carrying the form's file, so dropping it on the
+    /// preview reuses the exact same OnPreviewDrop -> LoadBoxesFromFileAsync path as dragging
+    /// a file in from a file manager.</summary>
+    private async void OnFormItemPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint((Control)sender!).Properties.IsLeftButtonPressed) return;
+        var path = (string)((Border)sender!).Tag!;
+
+        var storage = GetTopLevel(this)?.StorageProvider;
+        var file = storage is null ? null : await storage.TryGetFileFromPathAsync(path);
+        if (file is null) return;
+
+        var data = new DataObject();
+        data.Set(DataFormats.Files, new IStorageItem[] { file });
+        await DragDrop.DoDragDrop(e, data, DragDropEffects.Copy);
     }
 
     private double BedWidth => (double)(BedWidthBox.Value ?? 200m);
