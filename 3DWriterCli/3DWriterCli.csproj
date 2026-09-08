@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RootNamespace>WriterCliApp</RootNamespace>
+    <AssemblyName>3dwriter</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\3DWriterCore\3DWriterCore.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Reuse the existing font data instead of duplicating it. -->
+    <None Include="..\3DWriter\fonts\*.cmf">
+      <Link>fonts\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
