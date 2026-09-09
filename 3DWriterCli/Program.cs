@@ -14,7 +14,7 @@ string font = "cursive";
 string fontsDir = Path.Combine(AppContext.BaseDirectory, "fonts");
 string outPath = "3dwriter.gcode";
 bool listFonts = false;
-var s = new WriterSettings();
+var s = WriterSettings.Load(Path.Combine(AppContext.BaseDirectory, "settings.json"));
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -112,6 +112,10 @@ static void PrintHelp()
       --fonts-dir <path>       Directory with .cmf font files (default: ./fonts)
       --out <path>             Output GCode file (default: 3dwriter.gcode)
       --list-fonts             List available fonts in --fonts-dir and exit
+
+      Defaults below come from settings.json next to the binary (created there with
+      these values on first run) - edit that file to change them permanently, or
+      override per-run with the flags below.
 
       --scale <n>              Font scale (default: 0.2)
       --bed-width <mm>         (default: 210)

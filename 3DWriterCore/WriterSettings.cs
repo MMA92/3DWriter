@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace WriterCore;
 
 /// <summary>
@@ -31,4 +33,26 @@ public sealed class WriterSettings
     public string PenDown = "8";
     public double InitialClearance = 30; // Z height for the one-off lift right after homing (pen mode only) - extra margin before the first travel move, e.g. when the bed sits higher than expected after homing
     public bool DryRun = false;
+
+    // WriterSettings uses public fields (not properties) - IncludeFields is required or
+    // System.Text.Json silently serializes/deserializes nothing.
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, IncludeFields = true };
+
+    /// <summary>
+    /// Loads settings from a JSON file (e.g. settings.json next to the executable), creating
+    /// it with the defaults above if it doesn't exist yet - so bed size/offset/etc. are edited
+    /// there instead of recompiling. CLI flags / GUI controls still override these afterwards.
+    /// </summary>
+    public static WriterSettings Load(string settingsPath)
+    {
+        if (File.Exists(settingsPath))
+        {
+            var loaded = JsonSerializer.Deserialize<WriterSettings>(File.ReadAllText(settingsPath));
+            if (loaded is not null) return loaded;
+        }
+
+        var defaults = new WriterSettings();
+        File.WriteAllText(settingsPath, JsonSerializer.Serialize(defaults, JsonOptions));
+        return defaults;
+    }
 }

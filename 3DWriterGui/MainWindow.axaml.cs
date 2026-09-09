@@ -69,6 +69,23 @@ public partial class MainWindow : Window
         FontBox.ItemsSource = fonts;
         FontBox.SelectedItem = fonts.Contains("cursive") ? "cursive" : fonts.FirstOrDefault();
 
+        // settings.json next to the binary (created there on first run) supplies the
+        // starting values below - edit that file instead of these controls to change
+        // the defaults permanently. Controls can still be adjusted per-run afterwards.
+        var defaults = WriterSettings.Load(Path.Combine(AppContext.BaseDirectory, "settings.json"));
+        ScaleSlider.Value = defaults.Scale;
+        BedWidthBox.Value = (decimal)defaults.BedWidth;
+        BedHeightBox.Value = (decimal)defaults.BedHeight;
+        OffsetXBox.Value = (decimal)defaults.OffsetX;
+        OffsetYBox.Value = (decimal)defaults.OffsetY;
+        ToolOffsetXBox.Value = (decimal)defaults.ToolOffsetX;
+        ToolOffsetYBox.Value = (decimal)defaults.ToolOffsetY;
+        InitialClearanceBox.Value = (decimal)defaults.InitialClearance;
+        if (double.TryParse(defaults.PenUp, NumberStyles.Float, CultureInfo.InvariantCulture, out var penUp))
+            PenUpBox.Value = (decimal)penUp;
+        if (double.TryParse(defaults.PenDown, NumberStyles.Float, CultureInfo.InvariantCulture, out var penDown))
+            PenDownBox.Value = (decimal)penDown;
+
         ScaleSlider.ValueChanged += (_, e) => ScaleValueText.Text = e.NewValue.ToString("0.00");
         ScaleValueText.Text = ScaleSlider.Value.ToString("0.00");
 
