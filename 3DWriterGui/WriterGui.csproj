@@ -19,6 +19,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <AvaloniaResource Include="..\icons\icon.png">
+      <Link>icon.png</Link>
+    </AvaloniaResource>
     <None Include="..\3DWriter\fonts\*.cmf">
       <Link>fonts\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

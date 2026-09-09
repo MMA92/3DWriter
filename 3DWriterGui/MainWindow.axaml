@@ -4,6 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1060" d:DesignHeight="600"
         x:Class="WriterGui.MainWindow"
+        Icon="avares://3DWriterGui/icon.png"
         Title="3DWriter" Width="1060" Height="600">
     <Grid ColumnDefinitions="140,320,*" Margin="10">
         <DockPanel Grid.Column="0" Margin="0,0,10,0">
