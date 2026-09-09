@@ -86,7 +86,9 @@ public partial class MainWindow : Window
         PreviewBorder.AddHandler(DragDrop.DragOverEvent, OnPreviewDragOver);
         PreviewBorder.AddHandler(DragDrop.DropEvent, OnPreviewDrop);
 
-        KeyDown += OnWindowKeyDown;
+        // Tunnel (not the default Bubble) so this runs before a focused TextBox/NumericUpDown
+        // can swallow Ctrl+Z/Ctrl+Y/Delete for its own text editing.
+        AddHandler(KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel);
 
         UpdateCanvasFrame();
         PopulateFormsSidebar();
@@ -393,9 +395,14 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Delete removes the whole selected group: a hand-drawn box is its own
-    /// group (deletes just that one), a JSON-loaded set shares a group (deletes the unit).</summary>
+    /// group (deletes just that one), a JSON-loaded set shares a group (deletes the unit).
+    /// Ctrl+Z/Ctrl+Y mirror the Undo/Redo buttons. Text controls consume these keys for their
+    /// own edit-undo first (setting e.Handled), so this only fires for the box layout.</summary>
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
+        if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.Z) { OnUndoClick(sender, e); e.Handled = true; return; }
+        if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.Y) { OnRedoClick(sender, e); e.Handled = true; return; }
+
         if (e.Key != Key.Delete || _selectedGroup is not { } group) return;
 
         SaveUndoState();
