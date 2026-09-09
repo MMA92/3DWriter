@@ -27,6 +27,7 @@ public partial class MainWindow : Window
 {
     private const double PixelsPerMm = 2.0; // matches the original app's default preview magnification
     private static readonly IBrush OffsetLineBrush = new SolidColorBrush(Color.FromArgb(110, 255, 0, 0));
+    private static readonly IBrush SelectedBoxBrush = Brushes.DodgerBlue;
     private static readonly JsonSerializerOptions BoxesJsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     private const int MaxHistory = 10;
@@ -34,6 +35,8 @@ public partial class MainWindow : Window
     private readonly List<GCodeGenerator.Box> _boxes = new();
     private readonly List<int> _boxGroups = new(); // parallel to _boxes: boxes from one load/draw move together
     private int _nextGroupId;
+    private int? _selectedGroup; // group id of the last clicked box; Delete removes every box in it -
+                                  // a lone hand-drawn box is its own group, a JSON-loaded set shares one
     private readonly List<BoxesSnapshot> _undoStack = new();
     private readonly List<BoxesSnapshot> _redoStack = new();
     private string? _lastGCode;
@@ -82,6 +85,8 @@ public partial class MainWindow : Window
 
         PreviewBorder.AddHandler(DragDrop.DragOverEvent, OnPreviewDragOver);
         PreviewBorder.AddHandler(DragDrop.DropEvent, OnPreviewDrop);
+
+        KeyDown += OnWindowKeyDown;
 
         UpdateCanvasFrame();
         PopulateFormsSidebar();
@@ -216,12 +221,13 @@ public partial class MainWindow : Window
 
     private void AddBoxVisual(GCodeGenerator.Box box, int index)
     {
+        bool selected = _selectedGroup == _boxGroups[index];
         var rect = new Rectangle
         {
             Width = box.Width * PixelsPerMm,
             Height = box.Height * PixelsPerMm,
-            Stroke = Brushes.Black,
-            StrokeThickness = 1.5,
+            Stroke = selected ? SelectedBoxBrush : Brushes.Black,
+            StrokeThickness = selected ? 2.5 : 1.5,
             Fill = Brushes.Transparent, // makes the whole box (not just its outline) hit-testable for dragging
             Cursor = new Cursor(StandardCursorType.SizeAll),
             Tag = index,
@@ -230,6 +236,20 @@ public partial class MainWindow : Window
         Canvas.SetTop(rect, box.Y * PixelsPerMm);
         rect.PointerPressed += OnBoxPointerPressed;
         PreviewCanvas.Children.Add(rect);
+    }
+
+    /// <summary>Re-strokes existing box rectangles to match _selectedGroup without a full
+    /// redraw (cheap enough to call on every click, and avoids replacing the Rectangle
+    /// instances a drag is about to reference).</summary>
+    private void RefreshSelectionHighlight()
+    {
+        foreach (var r in PreviewCanvas.Children.OfType<Rectangle>())
+        {
+            if (r.Tag is not int idx) continue;
+            bool selected = _selectedGroup == _boxGroups[idx];
+            r.Stroke = selected ? SelectedBoxBrush : Brushes.Black;
+            r.StrokeThickness = selected ? 2.5 : 1.5;
+        }
     }
 
     /// <summary>Starts moving an existing box instead of drawing a new one; e.Handled stops
@@ -241,6 +261,7 @@ public partial class MainWindow : Window
     {
         var props = e.GetCurrentPoint(PreviewCanvas).Properties;
         int group = _boxGroups[(int)((Rectangle)sender!).Tag!];
+        _selectedGroup = group;
 
         if (props.IsRightButtonPressed)
         {
@@ -250,6 +271,7 @@ public partial class MainWindow : Window
         }
         if (!props.IsLeftButtonPressed) return;
 
+        RefreshSelectionHighlight();
         _dragGroup = PreviewCanvas.Children.OfType<Rectangle>()
             .Where(r => r.Tag is int idx && _boxGroups[idx] == group)
             .Select(r => (Rect: r, Left: Canvas.GetLeft(r), Top: Canvas.GetTop(r), Index: (int)r.Tag!))
@@ -284,6 +306,8 @@ public partial class MainWindow : Window
     private void OnCanvasPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (!e.GetCurrentPoint(PreviewCanvas).Properties.IsLeftButtonPressed) return;
+        _selectedGroup = null; // clicking empty preview deselects
+        RefreshSelectionHighlight();
         _dragStart = e.GetPosition(PreviewCanvas);
         _dragGhost = new Rectangle
         {
@@ -368,12 +392,29 @@ public partial class MainWindow : Window
         SaveButton.IsEnabled = false;
     }
 
+    /// <summary>Delete removes the whole selected group: a hand-drawn box is its own
+    /// group (deletes just that one), a JSON-loaded set shares a group (deletes the unit).</summary>
+    private void OnWindowKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Delete || _selectedGroup is not { } group) return;
+
+        SaveUndoState();
+        for (int i = _boxes.Count - 1; i >= 0; i--)
+        {
+            if (_boxGroups[i] == group) { _boxes.RemoveAt(i); _boxGroups.RemoveAt(i); }
+        }
+        _selectedGroup = null;
+        UpdateCanvasFrame();
+        e.Handled = true;
+    }
+
     private void OnClearBoxesClick(object? sender, RoutedEventArgs e)
     {
         if (_boxes.Count == 0) return;
         SaveUndoState();
         _boxes.Clear();
         _boxGroups.Clear();
+        _selectedGroup = null;
         UpdateCanvasFrame();
     }
 
