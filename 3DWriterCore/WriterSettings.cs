@@ -7,8 +7,8 @@ namespace WriterCore;
 public sealed class WriterSettings
 {
     public double Scale = 0.2;
-    public double BedWidth = 200;
-    public double BedHeight = 200;
+    public double BedWidth = 210;
+    public double BedHeight = 210;
     public double OffsetX = 45;
     public double OffsetY = 45;
     public double LineSpacing = 0;
