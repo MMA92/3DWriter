@@ -9,6 +9,14 @@ public sealed class UnsupportedCharacterException : Exception
         : base($"Character '{c}' is not part of the selected font's character set.") { }
 }
 
+public sealed class BlockedAreaException : Exception
+{
+    public BlockedAreaException()
+        : base($"Text or a box is in a blocked area the pen can't reach (left {GCodeGenerator.BlockedMarginLeft}mm, " +
+               $"right {GCodeGenerator.BlockedMarginRight}mm, top {GCodeGenerator.BlockedMarginTop}mm, bottom {GCodeGenerator.BlockedMarginBottom}mm " +
+               "from the bed edges). Move it and try again.") { }
+}
+
 /// <summary>
 /// Ported from Form1.cs render_stuff() (original WinForms app), stripped of the
 /// PictureBox preview and all UI/settings-dialog plumbing. GCode math and structure
@@ -21,6 +29,13 @@ public sealed class UnsupportedCharacterException : Exception
 /// </summary>
 public static class GCodeGenerator
 {
+    // Margins (mm, from each bed edge) where the pen mount can't physically reach - shared with
+    // the GUI so it can gray these zones out on the preview canvas using the same numbers.
+    public const double BlockedMarginLeft = 16;
+    public const double BlockedMarginRight = 30;
+    public const double BlockedMarginTop = 6;
+    public const double BlockedMarginBottom = 20;
+
     /// <summary>A single drawn stroke in bed-space mm (top-left origin, Y down) - for GUI preview only, not used for GCode.</summary>
     public readonly record struct Stroke(double X1, double Y1, double X2, double Y2);
 
@@ -194,6 +209,18 @@ public static class GCodeGenerator
         if (s.HomeX || s.HomeY)
             Line($"G0 {(s.HomeX ? "X0" : "")} {(s.HomeY ? $"Y{F(s.BedHeight)}" : "")} F{fTravel}"); // present: bed drives forward (Y max) instead of back to Y0
 
+        foreach (var st in strokes)
+        {
+            if (IsInBlockedZone(st.X1, st.Y1, s) || IsInBlockedZone(st.X2, st.Y2, s))
+                throw new BlockedAreaException();
+        }
+
         return new Result(g.ToString(), outOfBounds, strokes);
     }
+
+    /// <summary>True if (x,y) - in the same top-left/Y-down bed-space mm as <see cref="Stroke"/> - falls
+    /// within the pen's unreachable margin near a bed edge.</summary>
+    public static bool IsInBlockedZone(double x, double y, WriterSettings s) =>
+        x < BlockedMarginLeft || x > s.BedWidth - BlockedMarginRight ||
+        y < BlockedMarginTop || y > s.BedHeight - BlockedMarginBottom;
 }

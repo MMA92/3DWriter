@@ -31,6 +31,8 @@ public partial class MainWindow : Window
 {
     private const double PixelsPerMm = 2.0; // matches the original app's default preview magnification
     private static readonly IBrush OffsetLineBrush = new SolidColorBrush(Color.FromArgb(110, 255, 0, 0));
+    private static readonly IBrush BlockedZoneBrush = new SolidColorBrush(Color.FromArgb(90, 128, 128, 128));
+    private static readonly IBrush BlockedZoneTextBrush = new SolidColorBrush(Color.FromArgb(200, 60, 60, 60));
     private static readonly IBrush SelectedBoxBrush = Brushes.DodgerBlue;
     private static readonly JsonSerializerOptions BoxesJsonOptions = new()
     {
@@ -188,10 +190,49 @@ public partial class MainWindow : Window
         await DragDrop.DoDragDrop(e, data, DragDropEffects.Copy);
     }
 
-    private double BedWidth => (double)(BedWidthBox.Value ?? 200m);
-    private double BedHeight => (double)(BedHeightBox.Value ?? 200m);
+    private double BedWidth => (double)(BedWidthBox.Value ?? 210m);
+    private double BedHeight => (double)(BedHeightBox.Value ?? 210m);
     private double OffsetX => (double)(OffsetXBox.Value ?? 45m);
     private double OffsetY => (double)(OffsetYBox.Value ?? 45m);
+
+    /// <summary>Grays out the bed margins the pen mount physically can't reach (see
+    /// GCodeGenerator.BlockedMargin* - shared with the generator so the preview and the actual
+    /// generation-blocking check never drift apart), labeled "Blocked area", rotated on the
+    /// narrow left/right bands so the text reads sideways instead of overflowing.</summary>
+    private void AddBlockedZoneVisuals()
+    {
+        double w = PreviewCanvas.Width, h = PreviewCanvas.Height;
+        double left = GCodeGenerator.BlockedMarginLeft * PixelsPerMm;
+        double right = GCodeGenerator.BlockedMarginRight * PixelsPerMm;
+        double top = GCodeGenerator.BlockedMarginTop * PixelsPerMm;
+        double bottom = GCodeGenerator.BlockedMarginBottom * PixelsPerMm;
+
+        AddBlockedZoneRect(0, 0, left, h, vertical: true);
+        AddBlockedZoneRect(w - right, 0, right, h, vertical: true);
+        AddBlockedZoneRect(0, 0, w, top, vertical: false);
+        AddBlockedZoneRect(0, h - bottom, w, bottom, vertical: false);
+    }
+
+    private void AddBlockedZoneRect(double x, double y, double width, double height, bool vertical)
+    {
+        if (width <= 0 || height <= 0) return;
+
+        var rect = new Rectangle { Width = width, Height = height, Fill = BlockedZoneBrush, IsHitTestVisible = false };
+        Canvas.SetLeft(rect, x);
+        Canvas.SetTop(rect, y);
+        PreviewCanvas.Children.Add(rect);
+
+        var label = new TextBlock { Text = "Blocked area", FontSize = 10, Foreground = BlockedZoneTextBrush, IsHitTestVisible = false };
+        if (vertical)
+        {
+            label.RenderTransform = new RotateTransform(90); // rotate around its own center, positioned below at the band's center either way
+            label.RenderTransformOrigin = RelativePoint.Center;
+        }
+        label.Measure(Size.Infinity);
+        Canvas.SetLeft(label, x + width / 2 - label.DesiredSize.Width / 2);
+        Canvas.SetTop(label, y + height / 2 - label.DesiredSize.Height / 2);
+        PreviewCanvas.Children.Add(label);
+    }
 
     /// <summary>Resizes the canvas to the current bed size and draws the red offset
     /// crosshair marking where text placement (origin) would start - matches the
@@ -203,6 +244,8 @@ public partial class MainWindow : Window
         PreviewCanvas.Children.Clear();
         _lastGCode = null;
         SaveButton.IsEnabled = false;
+
+        AddBlockedZoneVisuals(); // gray out bed margins the pen mount can't reach, drawn first so shapes/crosshair sit on top
 
         PreviewCanvas.Children.Add(new Line
         {
@@ -628,6 +671,11 @@ public partial class MainWindow : Window
                 : $"Rendered {result.Strokes.Count} strokes.";
         }
         catch (UnsupportedCharacterException ex)
+        {
+            StatusText.Foreground = Brushes.Crimson;
+            StatusText.Text = ex.Message;
+        }
+        catch (BlockedAreaException ex)
         {
             StatusText.Foreground = Brushes.Crimson;
             StatusText.Text = ex.Message;

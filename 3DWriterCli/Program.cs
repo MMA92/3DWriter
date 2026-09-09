@@ -91,6 +91,11 @@ catch (UnsupportedCharacterException ex)
     Console.Error.WriteLine(ex.Message);
     return 1;
 }
+catch (BlockedAreaException ex)
+{
+    Console.Error.WriteLine(ex.Message);
+    return 1;
+}
 
 static void PrintHelp()
 {
@@ -107,8 +112,8 @@ static void PrintHelp()
       --list-fonts             List available fonts in --fonts-dir and exit
 
       --scale <n>              Font scale (default: 0.2)
-      --bed-width <mm>         (default: 200)
-      --bed-height <mm>        (default: 200)
+      --bed-width <mm>         (default: 210)
+      --bed-height <mm>        (default: 210)
       --offset-x <mm>          (default: 45)
       --offset-y <mm>          (default: 45)
       --line-spacing <units>   (default: 0)

@@ -37,6 +37,24 @@ dotnet publish 3DWriterCli -c Release -r linux-x64 --self-contained -p:PublishSi
 ```
 The published binary needs its `fonts/` folder next to it (copied automatically into the output dir) - keep them together if you move it.
 
+**No `dotnet` installed?** Use the official SDK container image via Podman/Docker instead - just swap every `dotnet ...` command above for:
+```sh
+podman run --rm -v "$PWD":/src:Z -w /src/3DWriterGui mcr.microsoft.com/dotnet/sdk:8.0 dotnet build
+podman run --rm -v "$PWD":/src:Z -w /src/3DWriterCli mcr.microsoft.com/dotnet/sdk:8.0 \
+  dotnet run -- --text "Hello" --font futural --out /src/dist/out.gcode
+
+# Publish (creates dist/ and dist-gui/ on the host, self-contained, no dotnet needed to run them)
+podman run --rm -v "$PWD":/src:Z -w /src/3DWriterGui mcr.microsoft.com/dotnet/sdk:8.0 \
+  dotnet publish -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o /src/dist-gui
+podman run --rm -v "$PWD":/src:Z -w /src/3DWriterCli mcr.microsoft.com/dotnet/sdk:8.0 \
+  dotnet publish -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o /src/dist
+```
+Afterwards, remove the `bin`/`obj` folders the container creates (sometimes root-owned, always gitignored but clutter `git status`):
+```sh
+rm -rf 3DWriterCli/bin 3DWriterCli/obj 3DWriterCore/bin 3DWriterCore/obj \
+       3DWriterGui/bin 3DWriterGui/obj 3DWriterGui/.avalonia-build-tasks
+```
+
 ## How to use it
 There are 3 main columns. 
 - Text entry

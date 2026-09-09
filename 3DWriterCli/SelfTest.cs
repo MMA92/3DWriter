@@ -69,9 +69,15 @@ public static class SelfTest
         Assert(roundTripped is [Star { Points: 5 }], "saved Star should record Points:5, not the JSON-missing-default 0");
         Assert(!roundTripJson.Contains("\"Closed\""), "Closed is derived from Type, shouldn't be written to JSON");
 
-        var mixed = new List<IShape> { new Box(0, 0, 10, 10), new Line(20, 0, 20, 10) };
+        // Positioned away from the bed edges - (0,0) would now trip the blocked-area check.
+        var mixed = new List<IShape> { new Box(50, 50, 10, 10), new Line(70, 50, 70, 60) };
         var shapeResult = GCodeGenerator.Generate("", "cursive", font, settings, shapes: mixed);
         Assert(shapeResult.Strokes.Count == 5, "box (4 sides) + line (1 segment) should plot 5 strokes");
+
+        bool blocked = false;
+        try { GCodeGenerator.Generate("", "cursive", font, settings, shapes: new List<IShape> { new Box(0, 0, 10, 10) }); }
+        catch (BlockedAreaException) { blocked = true; }
+        Assert(blocked, "a box in the bed-edge margin should raise BlockedAreaException");
     }
 
     private static void Assert(bool condition, string message)

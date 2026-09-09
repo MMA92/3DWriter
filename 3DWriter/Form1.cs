@@ -881,8 +881,8 @@ namespace _3DWriter
         private void resetDefaultsToolStripMenuItem_Click(object sender, EventArgs e)
         {
             //reset default - these are just safe settings i used initially
-            bedwidth.Text = "200";
-            beddepth.Text = "200";
+            bedwidth.Text = "210";
+            beddepth.Text = "210";
             penup.Text = "50";
             pendown.Text = "45";
             tspeed.Text = "100";
