@@ -40,6 +40,7 @@ public static class GCodeGenerator
         double accumX = 0, accumY = 0;
         double lastX = 0, lastY = 0;
         bool firstMove = true;
+        bool firstTravel = true; // very first pen-up+travel of the whole job uses InitialClearance instead of PenUp for extra safety margin
         bool outOfBounds = false;
 
         var g = new StringBuilder();
@@ -115,9 +116,10 @@ public static class GCodeGenerator
                         else
                         {
                             // Neuer, nicht anschließender Strich - Stift muss "umgesetzt" werden:
-                            Line(s.LaserMode ? s.PenUp : $"G0 Z{s.PenUp} F{fZ}");     // Zeile 14/16: Stift hoch (PenUp)
+                            Line(s.LaserMode ? s.PenUp : $"G0 Z{(firstTravel ? F(s.InitialClearance) : s.PenUp)} F{fZ}");     // Zeile 14/16: Stift hoch (PenUp, erste Anfahrt nach Homing: InitialClearance statt PenUp)
                             Line($"G0 X{F(gx1)} Y{F(gy1)} F{fTravel}");               // Zeile 15: zur Start-Position des Strichs fahren (Stift schwebt)
                             Line(s.LaserMode ? (s.DryRun ? s.PenUp : s.PenDown) : $"G0 Z{(s.DryRun ? s.PenUp : s.PenDown)} F{fZ}"); // Zeile 16: Stift runter (PenDown) - jetzt berührt er das Papier
+                            firstTravel = false;
                         }
 
                         if (gx1 > s.BedWidth || gx1 < 0) outOfBounds = true;
@@ -162,9 +164,10 @@ public static class GCodeGenerator
 
                 if (i == 0)
                 {
-                    Line(s.LaserMode ? s.PenUp : $"G0 Z{s.PenUp} F{fZ}");
+                    Line(s.LaserMode ? s.PenUp : $"G0 Z{(firstTravel ? F(s.InitialClearance) : s.PenUp)} F{fZ}");
                     Line($"G0 X{F(gx1)} Y{F(gy1)} F{fTravel}");
                     Line(s.LaserMode ? (s.DryRun ? s.PenUp : s.PenDown) : $"G0 Z{(s.DryRun ? s.PenUp : s.PenDown)} F{fZ}");
+                    firstTravel = false;
                 }
 
                 Line($"G1 X{F(gx2)} Y{F(gy2)} F{fDraw}");
@@ -185,7 +188,7 @@ public static class GCodeGenerator
         }
         else
         {
-            Line($"G0 Z{s.PenUp} F{fZ}"); // raise pen
+            Line($"G0 Z{F(s.InitialClearance)} F{fZ}"); // raise pen to safety clearance, not just normal PenUp
         }
 
         if (s.HomeX || s.HomeY)
