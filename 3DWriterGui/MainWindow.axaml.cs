@@ -194,6 +194,8 @@ public partial class MainWindow : Window
     private double BedHeight => (double)(BedHeightBox.Value ?? 210m);
     private double OffsetX => (double)(OffsetXBox.Value ?? 45m);
     private double OffsetY => (double)(OffsetYBox.Value ?? 45m);
+    private double ToolOffsetX => (double)(ToolOffsetXBox.Value ?? -10m);
+    private double ToolOffsetY => (double)(ToolOffsetYBox.Value ?? 10m);
 
     /// <summary>Grays out the bed margins the pen mount physically can't reach (see
     /// GCodeGenerator.BlockedMargin* - shared with the generator so the preview and the actual
@@ -642,6 +644,8 @@ public partial class MainWindow : Window
             BedHeight = BedHeight,
             OffsetX = OffsetX,
             OffsetY = OffsetY,
+            ToolOffsetX = ToolOffsetX,
+            ToolOffsetY = ToolOffsetY,
             PenUp = ((double)(PenUpBox.Value ?? 12m)).ToString(CultureInfo.InvariantCulture),
             PenDown = ((double)(PenDownBox.Value ?? 8m)).ToString(CultureInfo.InvariantCulture),
             InitialClearance = (double)(InitialClearanceBox.Value ?? 30m),

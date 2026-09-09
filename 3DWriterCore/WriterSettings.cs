@@ -11,6 +11,13 @@ public sealed class WriterSettings
     public double BedHeight = 210;
     public double OffsetX = 45;
     public double OffsetY = 45;
+    // Mechanical calibration: how far the pen tip sits from the nozzle the machine was
+    // homed/zeroed against (e.g. pen mounted 10mm right of the nozzle -> ToolOffsetX = -10
+    // so the sent GCode coordinate is shifted left, landing the pen where the nozzle would
+    // have been). Added to every emitted GCode X/Y, not to the preview (which shows the
+    // intended design, unaffected by where the physical toolhead happens to be mounted).
+    public double ToolOffsetX = -10;
+    public double ToolOffsetY = 10;
     public double LineSpacing = 0;
     public double LetterSpacing = 0;
     public double TravelSpeed = 100; // mm/s, converted to GCode F (mm/min) internally

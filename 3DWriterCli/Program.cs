@@ -34,6 +34,8 @@ for (int i = 0; i < args.Length; i++)
         case "--bed-height": s.BedHeight = NextD(); break;
         case "--offset-x": s.OffsetX = NextD(); break;
         case "--offset-y": s.OffsetY = NextD(); break;
+        case "--tool-offset-x": s.ToolOffsetX = NextD(); break;
+        case "--tool-offset-y": s.ToolOffsetY = NextD(); break;
         case "--line-spacing": s.LineSpacing = NextD(); break;
         case "--letter-spacing": s.LetterSpacing = NextD(); break;
         case "--travel-speed": s.TravelSpeed = NextD(); break;
@@ -116,6 +118,9 @@ static void PrintHelp()
       --bed-height <mm>        (default: 210)
       --offset-x <mm>          (default: 45)
       --offset-y <mm>          (default: 45)
+      --tool-offset-x <mm>     Mechanical calibration: pen tip position vs. the nozzle the
+                               machine is homed against, e.g. pen 10mm right of nozzle -> -10 (default: -10)
+      --tool-offset-y <mm>     Same, Y axis (default: 10)
       --line-spacing <units>   (default: 0)
       --letter-spacing <units> (default: 0)
       --travel-speed <mm/s>    (default: 100)

@@ -67,6 +67,7 @@ public static class GCodeGenerator
         Line($"; FontScale: {F(charHeight)}mm ({F(s.Scale)})"); // Zeile 3
         Line($"; Bed: {F(s.BedWidth)} x {F(s.BedHeight)}"); // Zeile 4
         Line($"; Offset: {F(s.OffsetX)} x {F(s.OffsetY)}"); // Zeile 5
+        Line($"; Tool offset: {F(s.ToolOffsetX)} x {F(s.ToolOffsetY)}");
         Line($"; Draw mode: {(s.LaserMode ? "Laser" : "Pen")}"); // Zeile 6
         Line($"; Pen Up: {s.PenUp}");                       // Zeile 7
         Line($"; Pen Down: {s.PenDown}");                   // Zeile 8
@@ -114,12 +115,12 @@ public static class GCodeGenerator
                             accumX + x1 + s.OffsetX, s.OffsetY + accumY + y1,
                             accumX + x2 + s.OffsetX, s.OffsetY + accumY + y2));
 
-                        double gx1 = accumX + x1 + s.OffsetX;
-                        double gy1 = (charHeight - y1) + (s.BedHeight - s.OffsetY) - accumY - charHeight;
+                        double gx1 = accumX + x1 + s.OffsetX + s.ToolOffsetX;
+                        double gy1 = (charHeight - y1) + (s.BedHeight - s.OffsetY) - accumY - charHeight + s.ToolOffsetY;
                         // Pen-lift test uses font-local Y (no accumY) - matches the original
                         // app's behaviour exactly, including its quirk of not distinguishing
                         // Y positions that coincide font-locally but differ across lines.
-                        double testY1 = (charHeight - y1) + (s.BedHeight - s.OffsetY);
+                        double testY1 = (charHeight - y1) + (s.BedHeight - s.OffsetY) + s.ToolOffsetY;
 
                         if (lastX == gx1 && lastY == testY1)
                         {
@@ -140,8 +141,8 @@ public static class GCodeGenerator
                         if (gx1 > s.BedWidth || gx1 < 0) outOfBounds = true;
                         if (gy1 > s.BedHeight || gy1 < 0) outOfBounds = true;
 
-                        double gx2 = accumX + x2 + s.OffsetX;
-                        double gy2 = (charHeight - y2) + (s.BedHeight - s.OffsetY) - accumY - charHeight;
+                        double gx2 = accumX + x2 + s.OffsetX + s.ToolOffsetX;
+                        double gy2 = (charHeight - y2) + (s.BedHeight - s.OffsetY) - accumY - charHeight + s.ToolOffsetY;
                         Line($"G1 X{F(gx2)} Y{F(gy2)} F{fDraw}");
                         // Zeile 17/19: der eigentliche Zeichenstrich - Stift ist unten (aus Zeile 16),
                         // fährt mit Zeichengeschwindigkeit (fDraw) vom Strich-Start zum Strich-Ende.
@@ -149,7 +150,7 @@ public static class GCodeGenerator
                         // oben (nahtloser Folge-Strich, erzeugt das doppelte G1 wie Zeile 17+18/19+20).
 
                         lastX = gx2;
-                        lastY = (charHeight - y2) + (s.BedHeight - s.OffsetY);
+                        lastY = (charHeight - y2) + (s.BedHeight - s.OffsetY) + s.ToolOffsetY;
                     }
                 }
 
@@ -171,8 +172,8 @@ public static class GCodeGenerator
                 var p2 = pts[(i + 1) % pts.Count];
                 strokes.Add(new Stroke(p1.X, p1.Y, p2.X, p2.Y));
 
-                double gx1 = p1.X, gy1 = s.BedHeight - p1.Y;
-                double gx2 = p2.X, gy2 = s.BedHeight - p2.Y;
+                double gx1 = p1.X + s.ToolOffsetX, gy1 = s.BedHeight - p1.Y + s.ToolOffsetY;
+                double gx2 = p2.X + s.ToolOffsetX, gy2 = s.BedHeight - p2.Y + s.ToolOffsetY;
 
                 if (gx1 > s.BedWidth || gx1 < 0 || gy1 > s.BedHeight || gy1 < 0) outOfBounds = true;
                 if (gx2 > s.BedWidth || gx2 < 0 || gy2 > s.BedHeight || gy2 < 0) outOfBounds = true;
