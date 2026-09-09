@@ -26,12 +26,7 @@ public static class GCodeGenerator
 
     public sealed record Result(string GCode, bool OutOfBounds, IReadOnlyList<Stroke> Strokes);
 
-    /// <summary>A rectangle to plot alongside the text, in the same top-left/Y-down preview
-    /// space as offsets (mm). Drawn as its own closed pen-up/move/pen-down/4-sides/pen-up
-    /// sequence - no continuation-optimization with the text strokes, this is a simple shape.</summary>
-    public readonly record struct Box(double X, double Y, double Width, double Height);
-
-    public static Result Generate(string text, string fontName, FontData font, WriterSettings s, IReadOnlyList<Box>? boxes = null)
+    public static Result Generate(string text, string fontName, FontData font, WriterSettings s, IReadOnlyList<IShape>? shapes = null)
     {
         var strokes = new List<Stroke>();
         double charHeight = font.Height * s.Scale;
@@ -147,23 +142,20 @@ public static class GCodeGenerator
             accumY += charHeight + lineSpacing;
         }
 
-        foreach (var boxVal in boxes ?? Array.Empty<Box>())
+        foreach (var shape in shapes ?? Array.Empty<IShape>())
         {
-            var corners = new (double X, double Y)[]
-            {
-                (boxVal.X, boxVal.Y), (boxVal.X + boxVal.Width, boxVal.Y),
-                (boxVal.X + boxVal.Width, boxVal.Y + boxVal.Height), (boxVal.X, boxVal.Y + boxVal.Height),
-                (boxVal.X, boxVal.Y),
-            };
+            var pts = shape.GetPoints();
+            if (pts.Count < 2) continue;
+            int segments = shape.Closed ? pts.Count : pts.Count - 1; // closed: wraps last -> first
 
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < segments; i++)
             {
-                var (px1, py1) = corners[i];
-                var (px2, py2) = corners[i + 1];
-                strokes.Add(new Stroke(px1, py1, px2, py2));
+                var p1 = pts[i];
+                var p2 = pts[(i + 1) % pts.Count];
+                strokes.Add(new Stroke(p1.X, p1.Y, p2.X, p2.Y));
 
-                double gx1 = px1, gy1 = s.BedHeight - py1;
-                double gx2 = px2, gy2 = s.BedHeight - py2;
+                double gx1 = p1.X, gy1 = s.BedHeight - p1.Y;
+                double gx2 = p2.X, gy2 = s.BedHeight - p2.Y;
 
                 if (gx1 > s.BedWidth || gx1 < 0 || gy1 > s.BedHeight || gy1 < 0) outOfBounds = true;
                 if (gx2 > s.BedWidth || gx2 < 0 || gy2 > s.BedHeight || gy2 < 0) outOfBounds = true;

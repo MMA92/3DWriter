@@ -1,0 +1,7 @@
+[
+  { "Type": "Rectangle", "X": 0, "Y": 0, "Width": 20, "Height": 20 },
+  { "Type": "Triangle", "X": 25, "Y": 0, "Width": 20, "Height": 20 },
+  { "Type": "Star", "X": 50, "Y": 0, "Width": 20, "Height": 20 },
+  { "Type": "Arrow", "X": 0, "Y": 25, "Width": 30, "Height": 12 },
+  { "Type": "Line", "X": 40, "Y": 25, "X2": 70, "Y2": 37 }
+]

@@ -12,8 +12,12 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using WriterCore;
+using Point = Avalonia.Point; // WriterCore also has a Point (shape coordinates) - disambiguate
 using Line = Avalonia.Controls.Shapes.Line;
 using Rectangle = Avalonia.Controls.Shapes.Rectangle;
+using Polygon = Avalonia.Controls.Shapes.Polygon;
+using Polyline = Avalonia.Controls.Shapes.Polyline;
+using ShapeControl = Avalonia.Controls.Shapes.Shape;
 using Path = System.IO.Path;
 
 namespace WriterGui;
@@ -28,24 +32,28 @@ public partial class MainWindow : Window
     private const double PixelsPerMm = 2.0; // matches the original app's default preview magnification
     private static readonly IBrush OffsetLineBrush = new SolidColorBrush(Color.FromArgb(110, 255, 0, 0));
     private static readonly IBrush SelectedBoxBrush = Brushes.DodgerBlue;
-    private static readonly JsonSerializerOptions BoxesJsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions BoxesJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        Converters = { new ShapeJsonConverter() },
+    };
 
     private const int MaxHistory = 10;
     private readonly string _fontsDir;
-    private readonly List<GCodeGenerator.Box> _boxes = new();
-    private readonly List<int> _boxGroups = new(); // parallel to _boxes: boxes from one load/draw move together
+    private readonly List<IShape> _shapes = new();
+    private readonly List<int> _boxGroups = new(); // parallel to _shapes: shapes from one load/draw move together
     private int _nextGroupId;
-    private int? _selectedGroup; // group id of the last clicked box; Delete removes every box in it -
+    private int? _selectedGroup; // group id of the last clicked shape; Delete removes every shape in it -
                                   // a lone hand-drawn box is its own group, a JSON-loaded set shares one
     private readonly List<BoxesSnapshot> _undoStack = new();
     private readonly List<BoxesSnapshot> _redoStack = new();
     private string? _lastGCode;
     private Point? _dragStart;
     private Rectangle? _dragGhost;
-    private List<(Rectangle Rect, double Left, double Top, int Index)>? _dragGroup;
+    private List<(ShapeControl Control, double Left, double Top, int Index)>? _dragGroup;
     private Point _dragStartPointer;
 
-    private readonly record struct BoxesSnapshot(List<GCodeGenerator.Box> Boxes, List<int> Groups);
+    private readonly record struct BoxesSnapshot(List<IShape> Shapes, List<int> Groups);
 
     public MainWindow()
     {
@@ -104,44 +112,37 @@ public partial class MainWindow : Window
 
         foreach (var file in Directory.GetFiles(formsDir, "*.json").OrderBy(f => f))
         {
-            List<GCodeGenerator.Box>? boxes;
+            List<IShape>? shapes;
             try
             {
-                boxes = JsonSerializer.Deserialize<List<GCodeGenerator.Box>>(File.ReadAllText(file), BoxesJsonOptions);
+                shapes = JsonSerializer.Deserialize<List<IShape>>(File.ReadAllText(file), BoxesJsonOptions);
             }
             catch (JsonException)
             {
                 continue; // skip files that aren't valid boxes JSON
             }
-            if (boxes is null || boxes.Count == 0) continue;
+            if (shapes is null || shapes.Count == 0) continue;
 
-            FormsPanel.Children.Add(BuildFormListItem(Path.GetFileNameWithoutExtension(file), boxes, file));
+            FormsPanel.Children.Add(BuildFormListItem(Path.GetFileNameWithoutExtension(file), shapes, file));
         }
     }
 
     private const double FormThumbSize = 96;
 
-    private Control BuildFormListItem(string name, List<GCodeGenerator.Box> boxes, string filePath)
+    private Control BuildFormListItem(string name, List<IShape> shapes, string filePath)
     {
-        double minX = boxes.Min(b => b.X), minY = boxes.Min(b => b.Y);
-        double w = Math.Max(boxes.Max(b => b.X + b.Width) - minX, 0.001);
-        double h = Math.Max(boxes.Max(b => b.Y + b.Height) - minY, 0.001);
+        var allPts = shapes.SelectMany(s => s.GetPoints()).ToList();
+        double minX = allPts.Min(p => p.X), minY = allPts.Min(p => p.Y);
+        double w = Math.Max(allPts.Max(p => p.X) - minX, 0.001);
+        double h = Math.Max(allPts.Max(p => p.Y) - minY, 0.001);
         double scale = Math.Min(FormThumbSize / w, FormThumbSize / h);
 
         var canvas = new Canvas { Width = FormThumbSize, Height = FormThumbSize };
-        foreach (var b in boxes)
+        foreach (var shape in shapes)
         {
-            var rect = new Rectangle
-            {
-                Width = b.Width * scale,
-                Height = b.Height * scale,
-                Stroke = Brushes.Black,
-                StrokeThickness = 1,
-                Fill = new SolidColorBrush(Colors.LightSteelBlue, 0.4),
-            };
-            Canvas.SetLeft(rect, (b.X - minX) * scale);
-            Canvas.SetTop(rect, (b.Y - minY) * scale);
-            canvas.Children.Add(rect);
+            var control = BuildShapeControl(shape, scale, minX, minY);
+            control.Fill = new SolidColorBrush(Colors.LightSteelBlue, 0.4);
+            canvas.Children.Add(control);
         }
 
         var thumb = new Border
@@ -218,34 +219,49 @@ public partial class MainWindow : Window
             StrokeThickness = 1.5,
         });
 
-        for (int i = 0; i < _boxes.Count; i++) AddBoxVisual(_boxes[i], i);
+        for (int i = 0; i < _shapes.Count; i++) AddShapeVisual(_shapes[i], i);
     }
 
-    private void AddBoxVisual(GCodeGenerator.Box box, int index)
+    /// <summary>Builds an Avalonia shape control from a shape's points - a filled Polygon for
+    /// closed shapes (box, triangle, star, arrow, ...), a plain Polyline for open ones (line).
+    /// Points are scaled and made relative to (originX, originY); shared by the form thumbnails
+    /// and the main preview canvas, which then position/style the result differently.</summary>
+    private static ShapeControl BuildShapeControl(IShape shape, double scale, double originX, double originY)
     {
-        bool selected = _selectedGroup == _boxGroups[index];
-        var rect = new Rectangle
-        {
-            Width = box.Width * PixelsPerMm,
-            Height = box.Height * PixelsPerMm,
-            Stroke = selected ? SelectedBoxBrush : Brushes.Black,
-            StrokeThickness = selected ? 2.5 : 1.5,
-            Fill = Brushes.Transparent, // makes the whole box (not just its outline) hit-testable for dragging
-            Cursor = new Cursor(StandardCursorType.SizeAll),
-            Tag = index,
-        };
-        Canvas.SetLeft(rect, box.X * PixelsPerMm);
-        Canvas.SetTop(rect, box.Y * PixelsPerMm);
-        rect.PointerPressed += OnBoxPointerPressed;
-        PreviewCanvas.Children.Add(rect);
+        var pts = new AvaloniaList<Point>(shape.GetPoints().Select(p => new Point((p.X - originX) * scale, (p.Y - originY) * scale)));
+        ShapeControl control = shape.Closed ? new Polygon { Points = pts } : new Polyline { Points = pts };
+        control.Stroke = Brushes.Black;
+        control.StrokeThickness = 1;
+        return control;
     }
 
-    /// <summary>Re-strokes existing box rectangles to match _selectedGroup without a full
-    /// redraw (cheap enough to call on every click, and avoids replacing the Rectangle
+    private void AddShapeVisual(IShape shape, int index)
+    {
+        var pts = shape.GetPoints();
+        double minX = pts.Min(p => p.X), minY = pts.Min(p => p.Y);
+        double maxX = pts.Max(p => p.X), maxY = pts.Max(p => p.Y);
+
+        bool selected = _selectedGroup == _boxGroups[index];
+        var control = BuildShapeControl(shape, PixelsPerMm, minX, minY);
+        control.Width = (maxX - minX) * PixelsPerMm;
+        control.Height = (maxY - minY) * PixelsPerMm;
+        control.Stroke = selected ? SelectedBoxBrush : Brushes.Black;
+        control.StrokeThickness = selected ? 2.5 : 1.5;
+        if (shape.Closed) control.Fill = Brushes.Transparent; // hit-testable across the whole interior, not just the outline
+        control.Cursor = new Cursor(StandardCursorType.SizeAll);
+        control.Tag = index;
+        Canvas.SetLeft(control, minX * PixelsPerMm);
+        Canvas.SetTop(control, minY * PixelsPerMm);
+        control.PointerPressed += OnBoxPointerPressed;
+        PreviewCanvas.Children.Add(control);
+    }
+
+    /// <summary>Re-strokes existing shape visuals to match _selectedGroup without a full
+    /// redraw (cheap enough to call on every click, and avoids replacing the control
     /// instances a drag is about to reference).</summary>
     private void RefreshSelectionHighlight()
     {
-        foreach (var r in PreviewCanvas.Children.OfType<Rectangle>())
+        foreach (var r in PreviewCanvas.Children.OfType<ShapeControl>())
         {
             if (r.Tag is not int idx) continue;
             bool selected = _selectedGroup == _boxGroups[idx];
@@ -262,7 +278,7 @@ public partial class MainWindow : Window
     private void OnBoxPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var props = e.GetCurrentPoint(PreviewCanvas).Properties;
-        int group = _boxGroups[(int)((Rectangle)sender!).Tag!];
+        int group = _boxGroups[(int)((ShapeControl)sender!).Tag!];
         _selectedGroup = group;
 
         if (props.IsRightButtonPressed)
@@ -274,36 +290,54 @@ public partial class MainWindow : Window
         if (!props.IsLeftButtonPressed) return;
 
         RefreshSelectionHighlight();
-        _dragGroup = PreviewCanvas.Children.OfType<Rectangle>()
+        _dragGroup = PreviewCanvas.Children.OfType<ShapeControl>()
             .Where(r => r.Tag is int idx && _boxGroups[idx] == group)
-            .Select(r => (Rect: r, Left: Canvas.GetLeft(r), Top: Canvas.GetTop(r), Index: (int)r.Tag!))
+            .Select(r => (Control: r, Left: Canvas.GetLeft(r), Top: Canvas.GetTop(r), Index: (int)r.Tag!))
             .ToList();
         _dragStartPointer = e.GetPosition(PreviewCanvas);
         e.Pointer.Capture(PreviewCanvas);
         e.Handled = true;
     }
 
-    /// <summary>Rotates every box sharing <paramref name="group"/> by 90° as one rigid unit:
-    /// each box's own center orbits the group's combined bounding-box center by 90°, and each
-    /// box swaps Width/Height. A lone box's center equals the group center, so it just rotates
-    /// in place - no separate single-box case needed.</summary>
+    /// <summary>Rotates every shape sharing <paramref name="group"/> by 90° as one rigid unit:
+    /// each shape's own centroid orbits the group's average center by 90°. A Box stays a Box
+    /// (its two centers coincide, so a lone box just swaps Width/Height in place); anything
+    /// else becomes a Polygon of its rotated points - still fully editable, just no longer
+    /// expressible in its original compact form once off-axis.</summary>
     private void RotateGroup(int group)
     {
-        var indices = Enumerable.Range(0, _boxes.Count).Where(i => _boxGroups[i] == group).ToList();
-        double gcx = indices.Average(i => _boxes[i].X + _boxes[i].Width / 2);
-        double gcy = indices.Average(i => _boxes[i].Y + _boxes[i].Height / 2);
+        var indices = Enumerable.Range(0, _shapes.Count).Where(i => _boxGroups[i] == group).ToList();
+        double gcx = indices.Average(i => _shapes[i].GetPoints().Average(p => p.X));
+        double gcy = indices.Average(i => _shapes[i].GetPoints().Average(p => p.Y));
 
         SaveUndoState();
-        foreach (int i in indices)
-        {
-            var b = _boxes[i];
-            double bcx = b.X + b.Width / 2, bcy = b.Y + b.Height / 2;
-            double dx = bcx - gcx, dy = bcy - gcy;
-            double ncx = gcx - dy, ncy = gcy + dx; // rotate center 90° around group center
-            _boxes[i] = new GCodeGenerator.Box(ncx - b.Height / 2, ncy - b.Width / 2, b.Height, b.Width);
-        }
+        foreach (int i in indices) _shapes[i] = Rotate90(_shapes[i], gcx, gcy);
         UpdateCanvasFrame();
     }
+
+    private static IShape Rotate90(IShape shape, double cx, double cy)
+    {
+        if (shape is Box b)
+        {
+            double bcx = b.X + b.Width / 2, bcy = b.Y + b.Height / 2;
+            double ncx = cx - (bcy - cy), ncy = cy + (bcx - cx);
+            return new Box(ncx - b.Height / 2, ncy - b.Width / 2, b.Height, b.Width);
+        }
+
+        var pts = shape.GetPoints().Select(p => new WriterCore.Point(cx - (p.Y - cy), cy + (p.X - cx))).ToList();
+        return new WriterCore.Polygon(pts, shape.Closed);
+    }
+
+    private static IShape Translate(IShape shape, double dx, double dy) => shape switch
+    {
+        Box b => b with { X = b.X + dx, Y = b.Y + dy },
+        WriterCore.Line l => l with { X = l.X + dx, Y = l.Y + dy, X2 = l.X2 + dx, Y2 = l.Y2 + dy },
+        Triangle t => t with { X = t.X + dx, Y = t.Y + dy },
+        Star st => st with { X = st.X + dx, Y = st.Y + dy },
+        Arrow a => a with { X = a.X + dx, Y = a.Y + dy },
+        WriterCore.Polygon p => p with { Points = p.Points.Select(pt => new WriterCore.Point(pt.X + dx, pt.Y + dy)).ToList() },
+        _ => shape,
+    };
 
     private void OnCanvasPointerPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -331,18 +365,18 @@ public partial class MainWindow : Window
             double dy = pos.Y - _dragStartPointer.Y;
 
             // Clamp the delta against the group's combined bounding box so the whole unit
-            // stays on the bed and none of its boxes get left behind or resized.
+            // stays on the bed and none of its shapes get left behind or resized.
             double minLeft = _dragGroup.Min(i => i.Left);
             double minTop = _dragGroup.Min(i => i.Top);
-            double maxRight = _dragGroup.Max(i => i.Left + i.Rect.Width);
-            double maxBottom = _dragGroup.Max(i => i.Top + i.Rect.Height);
+            double maxRight = _dragGroup.Max(i => i.Left + i.Control.Width);
+            double maxBottom = _dragGroup.Max(i => i.Top + i.Control.Height);
             dx = Math.Clamp(dx, -minLeft, PreviewCanvas.Width - maxRight);
             dy = Math.Clamp(dy, -minTop, PreviewCanvas.Height - maxBottom);
 
             foreach (var item in _dragGroup)
             {
-                Canvas.SetLeft(item.Rect, item.Left + dx);
-                Canvas.SetTop(item.Rect, item.Top + dy);
+                Canvas.SetLeft(item.Control, item.Left + dx);
+                Canvas.SetTop(item.Control, item.Top + dy);
             }
             return;
         }
@@ -362,11 +396,9 @@ public partial class MainWindow : Window
             SaveUndoState();
             foreach (var item in _dragGroup)
             {
-                _boxes[item.Index] = _boxes[item.Index] with
-                {
-                    X = Canvas.GetLeft(item.Rect) / PixelsPerMm,
-                    Y = Canvas.GetTop(item.Rect) / PixelsPerMm,
-                };
+                double dx = (Canvas.GetLeft(item.Control) - item.Left) / PixelsPerMm;
+                double dy = (Canvas.GetTop(item.Control) - item.Top) / PixelsPerMm;
+                _shapes[item.Index] = Translate(_shapes[item.Index], dx, dy);
             }
             _dragGroup = null;
             e.Pointer.Capture(null);
@@ -386,10 +418,10 @@ public partial class MainWindow : Window
         if (w < 3 || h < 3) return; // ignore accidental clicks
 
         SaveUndoState();
-        var box = new GCodeGenerator.Box(x / PixelsPerMm, y / PixelsPerMm, w / PixelsPerMm, h / PixelsPerMm);
-        _boxes.Add(box);
+        var box = new Box(x / PixelsPerMm, y / PixelsPerMm, w / PixelsPerMm, h / PixelsPerMm);
+        _shapes.Add(box);
         _boxGroups.Add(_nextGroupId++);
-        AddBoxVisual(box, _boxes.Count - 1);
+        AddShapeVisual(box, _shapes.Count - 1);
         _lastGCode = null;
         SaveButton.IsEnabled = false;
     }
@@ -406,9 +438,9 @@ public partial class MainWindow : Window
         if (e.Key != Key.Delete || _selectedGroup is not { } group) return;
 
         SaveUndoState();
-        for (int i = _boxes.Count - 1; i >= 0; i--)
+        for (int i = _shapes.Count - 1; i >= 0; i--)
         {
-            if (_boxGroups[i] == group) { _boxes.RemoveAt(i); _boxGroups.RemoveAt(i); }
+            if (_boxGroups[i] == group) { _shapes.RemoveAt(i); _boxGroups.RemoveAt(i); }
         }
         _selectedGroup = null;
         UpdateCanvasFrame();
@@ -417,19 +449,19 @@ public partial class MainWindow : Window
 
     private void OnClearBoxesClick(object? sender, RoutedEventArgs e)
     {
-        if (_boxes.Count == 0) return;
+        if (_shapes.Count == 0) return;
         SaveUndoState();
-        _boxes.Clear();
+        _shapes.Clear();
         _boxGroups.Clear();
         _selectedGroup = null;
         UpdateCanvasFrame();
     }
 
-    /// <summary>Snapshots the current boxes before a mutation, capped at the last MaxHistory
+    /// <summary>Snapshots the current shapes before a mutation, capped at the last MaxHistory
     /// commands. Any pending redo is discarded, since it no longer follows from this state.</summary>
     private void SaveUndoState()
     {
-        _undoStack.Add(new BoxesSnapshot(new List<GCodeGenerator.Box>(_boxes), new List<int>(_boxGroups)));
+        _undoStack.Add(new BoxesSnapshot(new List<IShape>(_shapes), new List<int>(_boxGroups)));
         if (_undoStack.Count > MaxHistory) _undoStack.RemoveAt(0);
         _redoStack.Clear();
         UpdateUndoRedoButtons();
@@ -437,13 +469,13 @@ public partial class MainWindow : Window
 
     private void RestoreState(List<BoxesSnapshot> from, List<BoxesSnapshot> to)
     {
-        to.Add(new BoxesSnapshot(new List<GCodeGenerator.Box>(_boxes), new List<int>(_boxGroups)));
+        to.Add(new BoxesSnapshot(new List<IShape>(_shapes), new List<int>(_boxGroups)));
         if (to.Count > MaxHistory) to.RemoveAt(0);
 
         var state = from[^1];
         from.RemoveAt(from.Count - 1);
-        _boxes.Clear();
-        _boxes.AddRange(state.Boxes);
+        _shapes.Clear();
+        _shapes.AddRange(state.Shapes);
         _boxGroups.Clear();
         _boxGroups.AddRange(state.Groups);
 
@@ -484,10 +516,10 @@ public partial class MainWindow : Window
 
     private async void OnSaveBoxesClick(object? sender, RoutedEventArgs e)
     {
-        if (_boxes.Count == 0)
+        if (_shapes.Count == 0)
         {
             StatusText.Foreground = Brushes.Crimson;
-            StatusText.Text = "No boxes to save.";
+            StatusText.Text = "No shapes to save.";
             return;
         }
 
@@ -501,10 +533,11 @@ public partial class MainWindow : Window
         });
         if (file is null) return;
 
+        var saveOptions = new JsonSerializerOptions(BoxesJsonOptions) { WriteIndented = true };
         await using var stream = await file.OpenWriteAsync();
-        await JsonSerializer.SerializeAsync(stream, _boxes, new JsonSerializerOptions { WriteIndented = true });
+        await JsonSerializer.SerializeAsync(stream, _shapes, saveOptions);
         StatusText.Foreground = Brushes.Gray;
-        StatusText.Text = $"Saved {_boxes.Count} box(es) to {file.Name}.";
+        StatusText.Text = $"Saved {_shapes.Count} shape(s) to {file.Name}.";
     }
 
     private void OnPreviewDragOver(object? sender, DragEventArgs e)
@@ -525,8 +558,8 @@ public partial class MainWindow : Window
             await using var stream = await file.OpenReadAsync();
             using var reader = new StreamReader(stream);
             var json = await reader.ReadToEndAsync();
-            var boxes = JsonSerializer.Deserialize<List<GCodeGenerator.Box>>(json, BoxesJsonOptions);
-            if (boxes is null || boxes.Count == 0)
+            var shapes = JsonSerializer.Deserialize<List<IShape>>(json, BoxesJsonOptions);
+            if (shapes is null || shapes.Count == 0)
             {
                 StatusText.Foreground = Brushes.Crimson;
                 StatusText.Text = "Boxes JSON was empty or invalid.";
@@ -535,11 +568,11 @@ public partial class MainWindow : Window
 
             SaveUndoState();
             int group = _nextGroupId++;
-            _boxes.AddRange(boxes);
-            _boxGroups.AddRange(Enumerable.Repeat(group, boxes.Count));
+            _shapes.AddRange(shapes);
+            _boxGroups.AddRange(Enumerable.Repeat(group, shapes.Count));
             UpdateCanvasFrame();
             StatusText.Foreground = Brushes.Gray;
-            StatusText.Text = $"Loaded {boxes.Count} box(es) from {file.Name}.";
+            StatusText.Text = $"Loaded {shapes.Count} shape(s) from {file.Name}.";
         }
         catch (Exception ex) when (ex is JsonException or IOException)
         {
@@ -574,7 +607,7 @@ public partial class MainWindow : Window
         try
         {
             var font = FontData.Load(Path.Combine(_fontsDir, fontName + ".cmf"));
-            var result = GCodeGenerator.Generate(TextInputBox.Text ?? "", fontName, font, settings, _boxes);
+            var result = GCodeGenerator.Generate(TextInputBox.Text ?? "", fontName, font, settings, _shapes);
 
             foreach (var stroke in result.Strokes)
             {

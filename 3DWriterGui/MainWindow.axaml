@@ -51,11 +51,11 @@
             <TextBlock Text="Initial clearance after homing (mm)" FontWeight="Bold"/>
             <NumericUpDown Name="InitialClearanceBox" Minimum="0" Maximum="200" Value="30" Increment="0.5" FormatString="0.0" Width="135"/>
 
-            <TextBlock Text="Boxes" FontWeight="Bold"/>
-            <TextBlock Text="Drag on empty preview to draw a box, drag an existing box to move it, right-click to rotate it 90°, click then press Delete to remove it (whole unit if loaded from JSON), or drop/load a boxes JSON file." TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
-            <Button Name="LoadBoxesButton" Content="Load boxes (JSON)..." HorizontalAlignment="Stretch" Click="OnLoadBoxesClick"/>
-            <Button Name="SaveBoxesButton" Content="Save boxes (JSON)..." HorizontalAlignment="Stretch" Click="OnSaveBoxesClick"/>
-            <Button Name="ClearBoxesButton" Content="Clear boxes" HorizontalAlignment="Stretch" Click="OnClearBoxesClick"/>
+            <TextBlock Text="Shapes" FontWeight="Bold"/>
+            <TextBlock Text="Drag on empty preview to draw a box, drag/right-click/Delete any shape to move/rotate/remove it (whole unit if loaded from JSON), or drop/load a shapes JSON file. JSON shapes: Box/Rectangle, Line, Triangle, Star, Arrow, Polygon (see forms/shapes-demo.json)." TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
+            <Button Name="LoadBoxesButton" Content="Load shapes (JSON)..." HorizontalAlignment="Stretch" Click="OnLoadBoxesClick"/>
+            <Button Name="SaveBoxesButton" Content="Save shapes (JSON)..." HorizontalAlignment="Stretch" Click="OnSaveBoxesClick"/>
+            <Button Name="ClearBoxesButton" Content="Clear shapes" HorizontalAlignment="Stretch" Click="OnClearBoxesClick"/>
             <StackPanel Orientation="Horizontal" Spacing="6">
                 <Button Name="UndoButton" Content="Undo" Width="103" Click="OnUndoClick" IsEnabled="False"/>
                 <Button Name="RedoButton" Content="Redo" Width="103" Click="OnRedoClick" IsEnabled="False"/>
