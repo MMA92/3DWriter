@@ -192,7 +192,7 @@ public static class GCodeGenerator
         }
 
         if (s.HomeX || s.HomeY)
-            Line($"G0 {(s.HomeX ? "X0" : "")} {(s.HomeY ? "Y0" : "")} F{fTravel}");
+            Line($"G0 {(s.HomeX ? "X0" : "")} {(s.HomeY ? $"Y{F(s.BedHeight)}" : "")} F{fTravel}"); // present: bed drives forward (Y max) instead of back to Y0
 
         return new Result(g.ToString(), outOfBounds, strokes);
     }
