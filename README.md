@@ -12,6 +12,31 @@ Windows executable is in 3DWriter/bin/Release/3DWriter.exe
 Note: Windows10 users may get a security warning, this is normal because i do not sign my applications, click "more info" then "run anyay".  
 Feel free to check and compile your own :)
 
+## Cross-platform version (Linux/Mac/Windows)
+A .NET 8 port lives in `3DWriterCore`/`3DWriterCli`/`3DWriterGui` (no WinForms/WPF, runs anywhere .NET 8 does).
+
+**GUI:**
+```sh
+dotnet run --project 3DWriterGui
+```
+or, after publishing a self-contained build (see below), just run the binary directly - no `dotnet` needed:
+```sh
+./dist-gui/3DWriterGui
+```
+
+**CLI:**
+```sh
+dotnet run --project 3DWriterCli -- --text "Hello" --font futural --out out.gcode
+```
+See `dotnet run --project 3DWriterCli -- --help` for all flags.
+
+**Publishing a standalone build** (no .NET install needed to run it afterwards):
+```sh
+dotnet publish 3DWriterGui -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o dist-gui
+dotnet publish 3DWriterCli -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o dist
+```
+The published binary needs its `fonts/` folder next to it (copied automatically into the output dir) - keep them together if you move it.
+
 ## How to use it
 There are 3 main columns. 
 - Text entry

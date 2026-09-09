@@ -235,11 +235,21 @@ public partial class MainWindow : Window
     /// <summary>Starts moving an existing box instead of drawing a new one; e.Handled stops
     /// the click from also reaching OnCanvasPointerPressed (bubbles from rect to canvas). Boxes
     /// loaded from the same JSON file (or drawn as one box) share a group id and move together
-    /// as a rigid unit, whichever one of them was grabbed.</summary>
+    /// as a rigid unit, whichever one of them was grabbed. Right-click instead rotates that
+    /// same rigid unit by 90°.</summary>
     private void OnBoxPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (!e.GetCurrentPoint(PreviewCanvas).Properties.IsLeftButtonPressed) return;
+        var props = e.GetCurrentPoint(PreviewCanvas).Properties;
         int group = _boxGroups[(int)((Rectangle)sender!).Tag!];
+
+        if (props.IsRightButtonPressed)
+        {
+            RotateGroup(group);
+            e.Handled = true;
+            return;
+        }
+        if (!props.IsLeftButtonPressed) return;
+
         _dragGroup = PreviewCanvas.Children.OfType<Rectangle>()
             .Where(r => r.Tag is int idx && _boxGroups[idx] == group)
             .Select(r => (Rect: r, Left: Canvas.GetLeft(r), Top: Canvas.GetTop(r), Index: (int)r.Tag!))
@@ -247,6 +257,28 @@ public partial class MainWindow : Window
         _dragStartPointer = e.GetPosition(PreviewCanvas);
         e.Pointer.Capture(PreviewCanvas);
         e.Handled = true;
+    }
+
+    /// <summary>Rotates every box sharing <paramref name="group"/> by 90° as one rigid unit:
+    /// each box's own center orbits the group's combined bounding-box center by 90°, and each
+    /// box swaps Width/Height. A lone box's center equals the group center, so it just rotates
+    /// in place - no separate single-box case needed.</summary>
+    private void RotateGroup(int group)
+    {
+        var indices = Enumerable.Range(0, _boxes.Count).Where(i => _boxGroups[i] == group).ToList();
+        double gcx = indices.Average(i => _boxes[i].X + _boxes[i].Width / 2);
+        double gcy = indices.Average(i => _boxes[i].Y + _boxes[i].Height / 2);
+
+        SaveUndoState();
+        foreach (int i in indices)
+        {
+            var b = _boxes[i];
+            double bcx = b.X + b.Width / 2, bcy = b.Y + b.Height / 2;
+            double dx = bcx - gcx, dy = bcy - gcy;
+            double ncx = gcx - dy, ncy = gcy + dx; // rotate center 90° around group center
+            _boxes[i] = new GCodeGenerator.Box(ncx - b.Height / 2, ncy - b.Width / 2, b.Height, b.Width);
+        }
+        UpdateCanvasFrame();
     }
 
     private void OnCanvasPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -400,6 +432,31 @@ public partial class MainWindow : Window
         });
 
         if (files.Count > 0) await LoadBoxesFromFileAsync(files[0]);
+    }
+
+    private async void OnSaveBoxesClick(object? sender, RoutedEventArgs e)
+    {
+        if (_boxes.Count == 0)
+        {
+            StatusText.Foreground = Brushes.Crimson;
+            StatusText.Text = "No boxes to save.";
+            return;
+        }
+
+        var storage = GetTopLevel(this)?.StorageProvider;
+        if (storage is null) return;
+
+        var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            SuggestedFileName = "boxes.json",
+            FileTypeChoices = new[] { new FilePickerFileType("Boxes JSON") { Patterns = new[] { "*.json" } } },
+        });
+        if (file is null) return;
+
+        await using var stream = await file.OpenWriteAsync();
+        await JsonSerializer.SerializeAsync(stream, _boxes, new JsonSerializerOptions { WriteIndented = true });
+        StatusText.Foreground = Brushes.Gray;
+        StatusText.Text = $"Saved {_boxes.Count} box(es) to {file.Name}.";
     }
 
     private void OnPreviewDragOver(object? sender, DragEventArgs e)
