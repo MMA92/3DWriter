@@ -45,9 +45,9 @@
 
             <TextBlock Text="Tool offset (mm) - pen tip vs. nozzle" FontWeight="Bold"/>
             <StackPanel Orientation="Horizontal" Spacing="6">
-                <NumericUpDown Name="ToolOffsetXBox" Minimum="-2000" Maximum="2000" Value="-10" Increment="0.5" FormatString="0.0" Width="135"/>
-                <TextBlock Text="x" VerticalAlignment="Center"/>
-                <NumericUpDown Name="ToolOffsetYBox" Minimum="-2000" Maximum="2000" Value="10" Increment="0.5" FormatString="0.0" Width="135"/>
+                <NumericUpDown Name="ToolOffsetXBox" Minimum="-2000" Maximum="2000" Value="-10" Increment="0.5" FormatString="0.0" Width="135" ToolTip.Tip="X offset"/>
+                <TextBlock Text="X / Y" VerticalAlignment="Center"/>
+                <NumericUpDown Name="ToolOffsetYBox" Minimum="-2000" Maximum="2000" Value="10" Increment="0.5" FormatString="0.0" Width="135" ToolTip.Tip="Y offset"/>
             </StackPanel>
 
             <TextBlock Text="Pen height Z (mm)" FontWeight="Bold"/>

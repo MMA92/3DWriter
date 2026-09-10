@@ -34,6 +34,14 @@ public sealed class WriterSettings
     public double InitialClearance = 30; // Z height for the one-off lift right after homing (pen mode only) - extra margin before the first travel move, e.g. when the bed sits higher than expected after homing
     public bool DryRun = false;
 
+    // Margins (mm, from each bed edge) where the pen mount can't physically reach - shared with
+    // the GUI so it can gray these zones out on the preview canvas using the same numbers. Defaults
+    // below only apply as a fallback until settings.json exists (see Load below).
+    public double BlockedMarginLeft = 16;
+    public double BlockedMarginRight = 30;
+    public double BlockedMarginTop = 6;
+    public double BlockedMarginBottom = 20;
+
     // WriterSettings uses public fields (not properties) - IncludeFields is required or
     // System.Text.Json silently serializes/deserializes nothing.
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, IncludeFields = true };
@@ -47,7 +55,7 @@ public sealed class WriterSettings
     {
         if (File.Exists(settingsPath))
         {
-            var loaded = JsonSerializer.Deserialize<WriterSettings>(File.ReadAllText(settingsPath));
+            var loaded = JsonSerializer.Deserialize<WriterSettings>(File.ReadAllText(settingsPath), JsonOptions);
             if (loaded is not null) return loaded;
         }
 

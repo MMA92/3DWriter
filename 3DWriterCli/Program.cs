@@ -44,6 +44,10 @@ for (int i = 0; i < args.Length; i++)
         case "--pen-up": s.PenUp = Next(); break;
         case "--pen-down": s.PenDown = Next(); break;
         case "--initial-clearance": s.InitialClearance = NextD(); break;
+        case "--blocked-margin-left": s.BlockedMarginLeft = NextD(); break;
+        case "--blocked-margin-right": s.BlockedMarginRight = NextD(); break;
+        case "--blocked-margin-top": s.BlockedMarginTop = NextD(); break;
+        case "--blocked-margin-bottom": s.BlockedMarginBottom = NextD(); break;
         case "--no-home-x": s.HomeX = false; break;
         case "--no-home-y": s.HomeY = false; break;
         case "--no-home-z": s.HomeZ = false; break;
@@ -133,6 +137,10 @@ static void PrintHelp()
       --pen-up <z-or-gcode>    (default: 12)
       --pen-down <z-or-gcode>  (default: 8)
       --initial-clearance <mm> One-off Z lift right after homing, pen mode only (default: 30)
+      --blocked-margin-left <mm>   Margin from bed edges the pen mount can't reach (default: 16)
+      --blocked-margin-right <mm>  Same, right edge (default: 30)
+      --blocked-margin-top <mm>    Same, top edge (default: 6)
+      --blocked-margin-bottom <mm> Same, bottom edge (default: 20)
       --no-home-x/-y/-z        Disable homing that axis before/after writing
       --laser                  Laser mode (uses M4/M5 unless --pen-up/-down override)
       --dry-run                Never lower the pen / turn on the laser

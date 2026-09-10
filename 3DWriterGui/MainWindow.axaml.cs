@@ -54,6 +54,7 @@ public partial class MainWindow : Window
     private Rectangle? _dragGhost;
     private List<(ShapeControl Control, double Left, double Top, int Index)>? _dragGroup;
     private Point _dragStartPointer;
+    private WriterSettings _blockedMargins = new(); // BlockedMargin* only, loaded from settings.json (no UI controls for these)
 
     private readonly record struct BoxesSnapshot(List<IShape> Shapes, List<int> Groups);
 
@@ -73,6 +74,7 @@ public partial class MainWindow : Window
         // starting values below - edit that file instead of these controls to change
         // the defaults permanently. Controls can still be adjusted per-run afterwards.
         var defaults = WriterSettings.Load(Path.Combine(AppContext.BaseDirectory, "settings.json"));
+        _blockedMargins = defaults;
         ScaleSlider.Value = defaults.Scale;
         BedWidthBox.Value = (decimal)defaults.BedWidth;
         BedHeightBox.Value = (decimal)defaults.BedHeight;
@@ -215,16 +217,16 @@ public partial class MainWindow : Window
     private double ToolOffsetY => (double)(ToolOffsetYBox.Value ?? 10m);
 
     /// <summary>Grays out the bed margins the pen mount physically can't reach (see
-    /// GCodeGenerator.BlockedMargin* - shared with the generator so the preview and the actual
-    /// generation-blocking check never drift apart), labeled "Blocked area", rotated on the
-    /// narrow left/right bands so the text reads sideways instead of overflowing.</summary>
+    /// WriterSettings.BlockedMargin* / _blockedMargins - loaded from settings.json so the
+    /// preview and the actual generation-blocking check never drift apart), labeled "Blocked
+    /// area", rotated on the narrow left/right bands so the text reads sideways instead of overflowing.</summary>
     private void AddBlockedZoneVisuals()
     {
         double w = PreviewCanvas.Width, h = PreviewCanvas.Height;
-        double left = GCodeGenerator.BlockedMarginLeft * PixelsPerMm;
-        double right = GCodeGenerator.BlockedMarginRight * PixelsPerMm;
-        double top = GCodeGenerator.BlockedMarginTop * PixelsPerMm;
-        double bottom = GCodeGenerator.BlockedMarginBottom * PixelsPerMm;
+        double left = _blockedMargins.BlockedMarginLeft * PixelsPerMm;
+        double right = _blockedMargins.BlockedMarginRight * PixelsPerMm;
+        double top = _blockedMargins.BlockedMarginTop * PixelsPerMm;
+        double bottom = _blockedMargins.BlockedMarginBottom * PixelsPerMm;
 
         AddBlockedZoneRect(0, 0, left, h, vertical: true);
         AddBlockedZoneRect(w - right, 0, right, h, vertical: true);
@@ -666,6 +668,10 @@ public partial class MainWindow : Window
             PenUp = ((double)(PenUpBox.Value ?? 12m)).ToString(CultureInfo.InvariantCulture),
             PenDown = ((double)(PenDownBox.Value ?? 8m)).ToString(CultureInfo.InvariantCulture),
             InitialClearance = (double)(InitialClearanceBox.Value ?? 30m),
+            BlockedMarginLeft = _blockedMargins.BlockedMarginLeft,
+            BlockedMarginRight = _blockedMargins.BlockedMarginRight,
+            BlockedMarginTop = _blockedMargins.BlockedMarginTop,
+            BlockedMarginBottom = _blockedMargins.BlockedMarginBottom,
         };
 
         try
