@@ -32,7 +32,11 @@ public static class GCodeGenerator
     /// <summary>A single drawn stroke in bed-space mm (top-left origin, Y down) - for GUI preview only, not used for GCode.</summary>
     public readonly record struct Stroke(double X1, double Y1, double X2, double Y2);
 
-    public sealed record Result(string GCode, bool OutOfBounds, IReadOnlyList<Stroke> Strokes);
+    public sealed record Result(string GCode, bool TextOutOfBounds, bool ShapesOutOfBounds, IReadOnlyList<Stroke> Strokes)
+    {
+        /// <summary>True if either text or shapes left the bed - kept for callers (CLI) that don't care which.</summary>
+        public bool OutOfBounds => TextOutOfBounds || ShapesOutOfBounds;
+    }
 
     public static Result Generate(string text, string fontName, FontData font, WriterSettings s, IReadOnlyList<IShape>? shapes = null)
     {
@@ -49,7 +53,8 @@ public static class GCodeGenerator
         double lastX = 0, lastY = 0;
         bool firstMove = true;
         bool firstTravel = true; // very first pen-up+travel of the whole job uses InitialClearance instead of PenUp for extra safety margin
-        bool outOfBounds = false;
+        bool textOutOfBounds = false;
+        bool shapesOutOfBounds = false;
 
         var g = new StringBuilder();
         void Line(string l) => g.Append(l).Append("\r\n");
@@ -131,8 +136,11 @@ public static class GCodeGenerator
                             firstTravel = false;
                         }
 
-                        if (gx1 > s.BedWidth || gx1 < 0) outOfBounds = true;
-                        if (gy1 > s.BedHeight || gy1 < 0) outOfBounds = true;
+                        // Checked in design space (ToolOffset subtracted back out) - ToolOffset is a
+                        // hardware calibration constant, not part of the design, so it shouldn't make
+                        // an otherwise on-bed glyph falsely count as off-bed.
+                        if (gx1 - s.ToolOffsetX > s.BedWidth || gx1 - s.ToolOffsetX < 0) textOutOfBounds = true;
+                        if (gy1 - s.ToolOffsetY > s.BedHeight || gy1 - s.ToolOffsetY < 0) textOutOfBounds = true;
 
                         double gx2 = accumX + x2 + s.OffsetX + s.ToolOffsetX;
                         double gy2 = (charHeight - y2) + (s.BedHeight - s.OffsetY) - accumY - charHeight + s.ToolOffsetY;
@@ -168,8 +176,9 @@ public static class GCodeGenerator
                 double gx1 = p1.X + s.ToolOffsetX, gy1 = s.BedHeight - p1.Y + s.ToolOffsetY;
                 double gx2 = p2.X + s.ToolOffsetX, gy2 = s.BedHeight - p2.Y + s.ToolOffsetY;
 
-                if (gx1 > s.BedWidth || gx1 < 0 || gy1 > s.BedHeight || gy1 < 0) outOfBounds = true;
-                if (gx2 > s.BedWidth || gx2 < 0 || gy2 > s.BedHeight || gy2 < 0) outOfBounds = true;
+                // Same as above: check design space (p1/p2), not the ToolOffset-shifted GCode coords.
+                if (p1.X > s.BedWidth || p1.X < 0 || p1.Y > s.BedHeight || p1.Y < 0) shapesOutOfBounds = true;
+                if (p2.X > s.BedWidth || p2.X < 0 || p2.Y > s.BedHeight || p2.Y < 0) shapesOutOfBounds = true;
 
                 if (i == 0)
                 {
@@ -209,7 +218,7 @@ public static class GCodeGenerator
                 throw new BlockedAreaException(s);
         }
 
-        return new Result(g.ToString(), outOfBounds, strokes);
+        return new Result(g.ToString(), textOutOfBounds, shapesOutOfBounds, strokes);
     }
 
     /// <summary>True if (x,y) - in the same top-left/Y-down bed-space mm as <see cref="Stroke"/> - falls

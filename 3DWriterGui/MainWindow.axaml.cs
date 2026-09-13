@@ -693,9 +693,13 @@ public partial class MainWindow : Window
             _lastGCode = result.GCode;
             SaveButton.IsEnabled = true;
             StatusText.Foreground = result.OutOfBounds ? Brushes.Crimson : Brushes.Gray;
-            StatusText.Text = result.OutOfBounds
-                ? "Warning: text goes out of the bed bounds."
-                : $"Rendered {result.Strokes.Count} strokes.";
+            StatusText.Text = (result.TextOutOfBounds, result.ShapesOutOfBounds) switch
+            {
+                (true, true) => "Warning: text and shapes go out of the bed bounds.",
+                (true, false) => "Warning: text goes out of the bed bounds.",
+                (false, true) => "Warning: a shape goes out of the bed bounds.",
+                _ => $"Rendered {result.Strokes.Count} strokes.",
+            };
         }
         catch (UnsupportedCharacterException ex)
         {

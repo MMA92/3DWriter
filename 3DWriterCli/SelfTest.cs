@@ -78,6 +78,13 @@ public static class SelfTest
         try { GCodeGenerator.Generate("", "cursive", font, settings, shapes: new List<IShape> { new Box(0, 0, 10, 10) }); }
         catch (BlockedAreaException) { blocked = true; }
         Assert(blocked, "a box in the bed-edge margin should raise BlockedAreaException");
+
+        // Regression: ToolOffset is hardware calibration, not part of the design - a box that
+        // fits the bed in design space must not be flagged just because a large ToolOffset would
+        // have pushed the GCode-space coordinate off-bed.
+        var offsetSettings = new WriterSettings { ToolOffsetX = -50, ToolOffsetY = -50 };
+        var onBed = GCodeGenerator.Generate("", "cursive", font, offsetSettings, shapes: new List<IShape> { new Box(20, 50, 10, 10) });
+        Assert(!onBed.ShapesOutOfBounds, "a box that fits the bed in design space shouldn't be flagged due to ToolOffset alone");
     }
 
     private static void Assert(bool condition, string message)
