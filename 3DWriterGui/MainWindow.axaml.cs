@@ -726,10 +726,11 @@ public partial class MainWindow : Window
                 : null;
 
             double warmupProgress = (double)(WarmupProgressBox.Value ?? 60m) / 100.0;
+            double imageMaxStrokeMm = (double)(ImageMaxStrokeBox.Value ?? 0m);
 
             var font = FontData.Load(Path.Combine(_fontsDir, fontName + ".cmf"));
             var result = GCodeGenerator.Generate(TextInputBox.Text ?? "", fontName, font, settings, _shapes,
-                imageBitmap, imagePixelMm, imageOffsetX, imageOffsetY, warmup, warmupProgress);
+                imageBitmap, imagePixelMm, imageOffsetX, imageOffsetY, warmup, warmupProgress, imageMaxStrokeMm);
 
             foreach (var stroke in result.Strokes)
             {

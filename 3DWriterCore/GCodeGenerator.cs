@@ -53,9 +53,13 @@ public static class GCodeGenerator
     /// <param name="warmupProgress">How far through the text/shapes/image body (0 = right at the start, 1 =
     /// right at the end) to splice the scribble in - default 0.6 (60%), roughly where a dry pen tends to
     /// start fading on a longer job. Only used when <paramref name="warmupScribble"/> is set.</param>
+    /// <param name="imageMaxStrokeMm">Long continuous image raster runs (e.g. a wide filled area) get cut
+    /// into chunks of at most this length, each with a fresh pen-up/down "stitch" instead of one long
+    /// sustained drag - helps avoid paper wrinkling/tearing under a long unbroken stroke. 0 disables it
+    /// (default - unchanged behavior, one draw per run).</param>
     public static Result Generate(string text, string fontName, FontData font, WriterSettings s, IReadOnlyList<IShape>? shapes = null,
         bool[,]? imageBitmap = null, double imagePixelSizeMm = 0, double? imageOffsetX = null, double? imageOffsetY = null,
-        (double x, double y, double size)? warmupScribble = null, double warmupProgress = 0.6)
+        (double x, double y, double size)? warmupScribble = null, double warmupProgress = 0.6, double imageMaxStrokeMm = 0)
     {
         var strokes = new List<Stroke>();
         double charHeight = font.Height * s.Scale;
@@ -252,7 +256,7 @@ public static class GCodeGenerator
         bool imageOutOfBounds = false;
         if (imageBitmap is not null)
             ImageGCodeGenerator.EmitRaster(imageBitmap, imagePixelSizeMm, imageOffsetX ?? s.OffsetX, imageOffsetY ?? s.OffsetY, s,
-                Line, fTravel, fDraw, fZ, ref firstTravel, ref imageOutOfBounds, strokes, onRunStart: MarkBoundary);
+                Line, fTravel, fDraw, fZ, ref firstTravel, ref imageOutOfBounds, strokes, onRunStart: MarkBoundary, maxStrokeLengthMm: imageMaxStrokeMm);
 
         if (warmupScribble is { } w)
         {

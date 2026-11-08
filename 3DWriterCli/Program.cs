@@ -24,6 +24,7 @@ string imageMode = "fill"; // fill | outline
 int imageEdgeThreshold = 100;
 double? imageOffsetX = null;
 double? imageOffsetY = null;
+double imageMaxStrokeMm = 0;
 bool warmup = false;
 double warmupX = 20, warmupY = 10, warmupSize = 10; // default clear of the stock blocked margins (left 16/top 6)
 double warmupProgress = 0.6;
@@ -52,6 +53,7 @@ for (int i = 0; i < args.Length; i++)
         case "--image-edge-threshold": imageEdgeThreshold = (int)NextD(); break;
         case "--image-offset-x": imageOffsetX = NextD(); break;
         case "--image-offset-y": imageOffsetY = NextD(); break;
+        case "--image-max-stroke": imageMaxStrokeMm = NextD(); break;
         case "--warmup-scribble": warmup = true; break;
         case "--warmup-x": warmupX = NextD(); break;
         case "--warmup-y": warmupY = NextD(); break;
@@ -134,7 +136,8 @@ try
 {
     var result = GCodeGenerator.Generate(text, font, fontData, s, imageBitmap: imageBitmap, imagePixelSizeMm: imagePixelMm,
         imageOffsetX: imageOffsetX, imageOffsetY: imageOffsetY,
-        warmupScribble: warmup ? (warmupX, warmupY, warmupSize) : null, warmupProgress: warmupProgress);
+        warmupScribble: warmup ? (warmupX, warmupY, warmupSize) : null, warmupProgress: warmupProgress,
+        imageMaxStrokeMm: imageMaxStrokeMm);
     File.WriteAllText(outPath, result.GCode);
     Console.WriteLine($"Wrote {outPath}");
     if (result.OutOfBounds)
@@ -179,6 +182,9 @@ static void PrintHelp()
       --image-invert           Draw light pixels / non-edges instead of dark/edges
       --image-offset-x <mm>    Image placement, independent of --offset-x/y (default: same as text)
       --image-offset-y <mm>    Same, Y axis
+      --image-max-stroke <mm>  Cut long raster runs (wide filled areas) into chunks of at most this
+                               length, each with a fresh pen-up/down - helps avoid paper tearing
+                               on long unbroken strokes (default: 0 = disabled)
 
       --warmup-scribble        Draw a small zigzag partway through the job to get a dry ballpoint
                                pen flowing again (pen stays down, lots of direction changes)

@@ -83,6 +83,16 @@ public static class SelfTest
         try { ImageGCodeGenerator.Generate(edgeBitmap, 1.0, new WriterSettings { OffsetX = 0, OffsetY = 0 }); }
         catch (BlockedAreaException) { blocked = true; }
         Assert(blocked, "a pixel in the bed-edge margin should raise BlockedAreaException");
+
+        // A long solid run (wide filled area) should get cut into multiple shorter draw moves
+        // (each with its own fresh pen-up/down) once it exceeds maxStrokeLengthMm, instead of
+        // one long unbroken G1 - this is what avoids paper tearing on long strokes.
+        var wideRow = new bool[1, 20];
+        for (int c = 0; c < 20; c++) wideRow[0, c] = true; // one 20px-wide run, 1mm/px = 20mm long
+        var chunked = ImageGCodeGenerator.Generate(wideRow, 1.0, settings, maxStrokeLengthMm: 5);
+        var unchunked = ImageGCodeGenerator.Generate(wideRow, 1.0, settings, maxStrokeLengthMm: 0);
+        Assert(chunked.GCode.Split("G1 ").Length > unchunked.GCode.Split("G1 ").Length,
+            "a 20mm run capped at 5mm chunks should produce more draw moves than uncapped");
     }
 
     /// <summary>Covers the shape primitives (Box/Line/Triangle/Star/Arrow/Polygon), the

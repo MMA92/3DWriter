@@ -25,7 +25,12 @@ public static class ImageGCodeGenerator
     /// <paramref name="offsetY"/>) - defaults to the text offset (s.OffsetX/Y) if not given - in the
     /// same top-left/Y-down design space as text and shapes.
     /// </summary>
-    public static Result Generate(bool[,] bitmap, double pixelSizeMm, WriterSettings s, double? offsetX = null, double? offsetY = null)
+    /// <param name="maxStrokeLengthMm">Long continuous raster runs (e.g. a wide solid-filled area)
+    /// get split into chunks of at most this length, each with its own pen-up/down "stitch" -
+    /// breaks up the sustained drag that can wrinkle/tear paper over a long unbroken stroke.
+    /// 0 (default) disables chunking - one draw move per run, same as before.</param>
+    public static Result Generate(bool[,] bitmap, double pixelSizeMm, WriterSettings s, double? offsetX = null, double? offsetY = null,
+        double maxStrokeLengthMm = 0)
     {
         double ox = offsetX ?? s.OffsetX, oy = offsetY ?? s.OffsetY;
         int rows = bitmap.GetLength(0), cols = bitmap.GetLength(1);
@@ -59,7 +64,7 @@ public static class ImageGCodeGenerator
             Line($"G0 Z{F(s.InitialClearance)} F{fTravel}");
         }
 
-        EmitRaster(bitmap, pixelSizeMm, ox, oy, s, Line, fTravel, fDraw, fZ, ref firstTravel, ref outOfBounds, strokes: null);
+        EmitRaster(bitmap, pixelSizeMm, ox, oy, s, Line, fTravel, fDraw, fZ, ref firstTravel, ref outOfBounds, strokes: null, maxStrokeLengthMm: maxStrokeLengthMm);
 
         if (s.LaserMode)
         {
@@ -87,7 +92,8 @@ public static class ImageGCodeGenerator
         Action<string> line, int fTravel, int fDraw, int fZ,
         ref bool firstTravel, ref bool outOfBounds,
         List<GCodeGenerator.Stroke>? strokes,
-        Action? onRunStart = null)
+        Action? onRunStart = null,
+        double maxStrokeLengthMm = 0)
     {
         int rows = bitmap.GetLength(0), cols = bitmap.GetLength(1);
         static string F(double v) => v.ToString(CultureInfo.InvariantCulture);
@@ -131,16 +137,29 @@ public static class ImageGCodeGenerator
                 throw new BlockedAreaException(s);
 
             strokes?.Add(new GCodeGenerator.Stroke(xA, y, xB, y));
-            onRunStart?.Invoke();
 
-            var (gxA, gyA) = ToGCode(xA, y);
-            var (gxB, gyB) = ToGCode(xB, y);
+            // Long runs (e.g. a wide filled area) get cut into shorter chunks, each its own fresh
+            // pen-up/down "stitch", instead of one long sustained drag - see maxStrokeLengthMm.
+            int chunks = maxStrokeLengthMm > 0 ? Math.Max(1, (int)Math.Ceiling(Math.Abs(xB - xA) / maxStrokeLengthMm)) : 1;
+            double chunkStep = (xB - xA) / chunks;
+            double chunkX = xA;
 
-            line(s.LaserMode ? s.PenUp : $"G0 Z{(localFirstTravel ? F(s.InitialClearance) : s.PenUp)} F{fZ}");
-            line($"G0 X{F(gxA)} Y{F(gyA)} F{fTravel}");
-            line(s.LaserMode ? (s.DryRun ? s.PenUp : s.PenDown) : $"G0 Z{(s.DryRun ? s.PenUp : s.PenDown)} F{fZ}");
-            localFirstTravel = false;
-            line($"G1 X{F(gxB)} Y{F(gyB)} F{fDraw}");
+            for (int c = 0; c < chunks; c++)
+            {
+                double chunkEndX = c == chunks - 1 ? xB : chunkX + chunkStep;
+
+                onRunStart?.Invoke();
+                var (gxA, gyA) = ToGCode(chunkX, y);
+                var (gxB, gyB) = ToGCode(chunkEndX, y);
+
+                line(s.LaserMode ? s.PenUp : $"G0 Z{(localFirstTravel ? F(s.InitialClearance) : s.PenUp)} F{fZ}");
+                line($"G0 X{F(gxA)} Y{F(gyA)} F{fTravel}");
+                line(s.LaserMode ? (s.DryRun ? s.PenUp : s.PenDown) : $"G0 Z{(s.DryRun ? s.PenUp : s.PenDown)} F{fZ}");
+                localFirstTravel = false;
+                line($"G1 X{F(gxB)} Y{F(gyB)} F{fDraw}");
+
+                chunkX = chunkEndX;
+            }
         }
 
         firstTravel = localFirstTravel;
