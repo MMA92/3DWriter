@@ -86,7 +86,8 @@ public static class ImageGCodeGenerator
         bool[,] bitmap, double pixelSizeMm, double offsetX, double offsetY, WriterSettings s,
         Action<string> line, int fTravel, int fDraw, int fZ,
         ref bool firstTravel, ref bool outOfBounds,
-        List<GCodeGenerator.Stroke>? strokes)
+        List<GCodeGenerator.Stroke>? strokes,
+        Action? onRunStart = null)
     {
         int rows = bitmap.GetLength(0), cols = bitmap.GetLength(1);
         static string F(double v) => v.ToString(CultureInfo.InvariantCulture);
@@ -130,6 +131,7 @@ public static class ImageGCodeGenerator
                 throw new BlockedAreaException(s);
 
             strokes?.Add(new GCodeGenerator.Stroke(xA, y, xB, y));
+            onRunStart?.Invoke();
 
             var (gxA, gyA) = ToGCode(xA, y);
             var (gxB, gyB) = ToGCode(xB, y);

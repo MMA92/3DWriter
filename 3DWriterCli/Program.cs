@@ -26,6 +26,7 @@ double? imageOffsetX = null;
 double? imageOffsetY = null;
 bool warmup = false;
 double warmupX = 20, warmupY = 10, warmupSize = 10; // default clear of the stock blocked margins (left 16/top 6)
+double warmupProgress = 0.6;
 var s = WriterSettings.Load(Path.Combine(AppContext.BaseDirectory, "settings.json"));
 
 for (int i = 0; i < args.Length; i++)
@@ -55,6 +56,7 @@ for (int i = 0; i < args.Length; i++)
         case "--warmup-x": warmupX = NextD(); break;
         case "--warmup-y": warmupY = NextD(); break;
         case "--warmup-size": warmupSize = NextD(); break;
+        case "--warmup-progress": warmupProgress = NextD(); break;
         case "--scale": s.Scale = NextD(); break;
         case "--bed-width": s.BedWidth = NextD(); break;
         case "--bed-height": s.BedHeight = NextD(); break;
@@ -132,7 +134,7 @@ try
 {
     var result = GCodeGenerator.Generate(text, font, fontData, s, imageBitmap: imageBitmap, imagePixelSizeMm: imagePixelMm,
         imageOffsetX: imageOffsetX, imageOffsetY: imageOffsetY,
-        warmupScribble: warmup ? (warmupX, warmupY, warmupSize) : null);
+        warmupScribble: warmup ? (warmupX, warmupY, warmupSize) : null, warmupProgress: warmupProgress);
     File.WriteAllText(outPath, result.GCode);
     Console.WriteLine($"Wrote {outPath}");
     if (result.OutOfBounds)
@@ -178,11 +180,12 @@ static void PrintHelp()
       --image-offset-x <mm>    Image placement, independent of --offset-x/y (default: same as text)
       --image-offset-y <mm>    Same, Y axis
 
-      --warmup-scribble        Draw a small zigzag first to get a ballpoint pen flowing before
-                               the real job (pen stays down, lots of direction changes)
+      --warmup-scribble        Draw a small zigzag partway through the job to get a dry ballpoint
+                               pen flowing again (pen stays down, lots of direction changes)
       --warmup-x <mm>          Scribble position, pick a spot nothing else uses (default: 20)
       --warmup-y <mm>          Same, Y axis (default: 10)
       --warmup-size <mm>       Scribble square size (default: 10)
+      --warmup-progress <0-1>  How far through the job to splice it in, 0=start 1=end (default: 0.6)
 
       Defaults below come from settings.json next to the binary (created there with
       these values on first run) - edit that file to change them permanently, or

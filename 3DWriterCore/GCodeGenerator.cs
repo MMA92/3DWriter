@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text;
 
 namespace WriterCore;
 
@@ -45,14 +44,18 @@ public static class GCodeGenerator
     /// <param name="imagePixelSizeMm">mm per pixel row/column - required (and only used) when <paramref name="imageBitmap"/> is set.</param>
     /// <param name="imageOffsetX">Image placement, independent of the text/shape (s.OffsetX/Y) origin -
     /// defaults to s.OffsetX/Y (same spot as text) when not given.</param>
-    /// <param name="warmupScribble">Draws a small dense zigzag at (x, y) - size x size mm - before anything
-    /// else, pen held down the whole time. Ballpoint pens in particular can run dry/skip after sitting or
-    /// during long straight moves; a few seconds of continuous direction changes gets the ink flowing
-    /// before the actual job starts, like scribbling on scratch paper first. Pick a spot the rest of the
-    /// job doesn't use (e.g. a corner) - it's checked against the bed/blocked-zone like everything else.</param>
+    /// <param name="warmupScribble">Draws a small dense zigzag at (x, y) - size x size mm - pen held down
+    /// the whole time, spliced in partway through the job (see <paramref name="warmupProgress"/>). Ballpoint
+    /// pens in particular can run dry/skip after drawing for a while; a few seconds of continuous direction
+    /// changes gets the ink flowing again, like scribbling on scratch paper. Pick a spot the rest of the job
+    /// doesn't use (e.g. a corner) - it's checked against the bed/blocked-zone like everything else. Inserted
+    /// only at a safe boundary (between two already-independent pen-up/down cycles), never mid-stroke.</param>
+    /// <param name="warmupProgress">How far through the text/shapes/image body (0 = right at the start, 1 =
+    /// right at the end) to splice the scribble in - default 0.6 (60%), roughly where a dry pen tends to
+    /// start fading on a longer job. Only used when <paramref name="warmupScribble"/> is set.</param>
     public static Result Generate(string text, string fontName, FontData font, WriterSettings s, IReadOnlyList<IShape>? shapes = null,
         bool[,]? imageBitmap = null, double imagePixelSizeMm = 0, double? imageOffsetX = null, double? imageOffsetY = null,
-        (double x, double y, double size)? warmupScribble = null)
+        (double x, double y, double size)? warmupScribble = null, double warmupProgress = 0.6)
     {
         var strokes = new List<Stroke>();
         double charHeight = font.Height * s.Scale;
@@ -70,9 +73,43 @@ public static class GCodeGenerator
         bool textOutOfBounds = false;
         bool shapesOutOfBounds = false;
 
-        var g = new StringBuilder();
-        void Line(string l) => g.Append(l).Append("\r\n");
+        var lines = new List<string>();
+        void Line(string l) => lines.Add(l);
         static string F(double v) => v.ToString(CultureInfo.InvariantCulture);
+
+        // Positions (indices into `lines`) right before each independent pen-up/travel/pen-down/draw
+        // cycle starts - the only places it's safe to splice a warmup scribble in later without
+        // interrupting an in-progress stroke (e.g. a seamless multi-segment glyph like "W").
+        var safeBoundaries = new List<int>();
+        void MarkBoundary() => safeBoundaries.Add(lines.Count);
+
+        List<string> BuildScribbleLines((double x, double y, double size) w)
+        {
+            if (IsInBlockedZone(w.x, w.y, s) || IsInBlockedZone(w.x + w.size, w.y + w.size, s))
+                throw new BlockedAreaException(s);
+
+            var buf = new List<string>();
+            void L(string l) => buf.Add(l);
+            double wgx(double x) => x + s.ToolOffsetX;
+            double wgy(double y) => s.BedHeight - y + s.ToolOffsetY;
+
+            // Always mid-job (spliced in after the fact) - never the very first move, so just the
+            // normal PenUp height, no InitialClearance.
+            L(s.LaserMode ? s.PenUp : $"G0 Z{s.PenUp} F{fZ}");
+            L($"G0 X{F(wgx(w.x))} Y{F(wgy(w.y))} F{fTravel}");
+            L(s.LaserMode ? (s.DryRun ? s.PenUp : s.PenDown) : $"G0 Z{(s.DryRun ? s.PenUp : s.PenDown)} F{fZ}");
+
+            const int zigzags = 10; // back-and-forth passes - plenty of direction changes to get a ballpoint rolling again
+            for (int i = 0; i < zigzags; i++)
+            {
+                double y = w.y + w.size * i / (zigzags - 1.0);
+                double xEnd = i % 2 == 0 ? w.x + w.size : w.x;
+                L($"G1 X{F(wgx(xEnd))} Y{F(wgy(y))} F{fDraw}");
+            }
+
+            L(s.LaserMode ? s.PenUp : $"G0 Z{s.PenUp} F{fZ}");
+            return buf;
+        }
 
         Line("; Generated with 3DWriter-cli");             // Zeile 1: nur Info, kein G-Code
         Line($"; Font: {fontName}");                        // Zeile 2
@@ -104,29 +141,7 @@ public static class GCodeGenerator
             Line($"G0 Z{F(s.InitialClearance)} F{fTravel}"); // Zeile 13: einmaliger Extra-Hub direkt nach dem Homen (höher als das normale PenUp danach)
         }
 
-        if (warmupScribble is { } w)
-        {
-            if (IsInBlockedZone(w.x, w.y, s) || IsInBlockedZone(w.x + w.size, w.y + w.size, s))
-                throw new BlockedAreaException(s);
-
-            double wgx(double x) => x + s.ToolOffsetX;
-            double wgy(double y) => s.BedHeight - y + s.ToolOffsetY;
-
-            Line(s.LaserMode ? s.PenUp : $"G0 Z{F(s.InitialClearance)} F{fTravel}");
-            Line($"G0 X{F(wgx(w.x))} Y{F(wgy(w.y))} F{fTravel}");
-            Line(s.LaserMode ? (s.DryRun ? s.PenUp : s.PenDown) : $"G0 Z{(s.DryRun ? s.PenUp : s.PenDown)} F{fZ}");
-            firstTravel = false;
-
-            const int zigzags = 10; // back-and-forth passes - plenty of direction changes to get a ballpoint rolling again
-            for (int i = 0; i < zigzags; i++)
-            {
-                double y = w.y + w.size * i / (zigzags - 1.0);
-                double xEnd = i % 2 == 0 ? w.x + w.size : w.x;
-                Line($"G1 X{F(wgx(xEnd))} Y{F(wgy(y))} F{fDraw}");
-            }
-
-            Line(s.LaserMode ? s.PenUp : $"G0 Z{s.PenUp} F{fZ}");
-        }
+        int bodyStart = lines.Count;
 
         foreach (var rawLine in text.Replace("\r\n", "\n").Split('\n'))
         {
@@ -168,6 +183,7 @@ public static class GCodeGenerator
                         else
                         {
                             // Neuer, nicht anschließender Strich - Stift muss "umgesetzt" werden:
+                            MarkBoundary(); // independent pen-up/down cycle - safe splice point for a warmup scribble
                             Line(s.LaserMode ? s.PenUp : $"G0 Z{(firstTravel ? F(s.InitialClearance) : s.PenUp)} F{fZ}");     // Zeile 14/16: Stift hoch (PenUp, erste Anfahrt nach Homing: InitialClearance statt PenUp)
                             Line($"G0 X{F(gx1)} Y{F(gy1)} F{fTravel}");               // Zeile 15: zur Start-Position des Strichs fahren (Stift schwebt)
                             Line(s.LaserMode ? (s.DryRun ? s.PenUp : s.PenDown) : $"G0 Z{(s.DryRun ? s.PenUp : s.PenDown)} F{fZ}"); // Zeile 16: Stift runter (PenDown) - jetzt berührt er das Papier
@@ -220,6 +236,7 @@ public static class GCodeGenerator
 
                 if (i == 0)
                 {
+                    MarkBoundary();
                     Line(s.LaserMode ? s.PenUp : $"G0 Z{(firstTravel ? F(s.InitialClearance) : s.PenUp)} F{fZ}");
                     Line($"G0 X{F(gx1)} Y{F(gy1)} F{fTravel}");
                     Line(s.LaserMode ? (s.DryRun ? s.PenUp : s.PenDown) : $"G0 Z{(s.DryRun ? s.PenUp : s.PenDown)} F{fZ}");
@@ -235,7 +252,23 @@ public static class GCodeGenerator
         bool imageOutOfBounds = false;
         if (imageBitmap is not null)
             ImageGCodeGenerator.EmitRaster(imageBitmap, imagePixelSizeMm, imageOffsetX ?? s.OffsetX, imageOffsetY ?? s.OffsetY, s,
-                Line, fTravel, fDraw, fZ, ref firstTravel, ref imageOutOfBounds, strokes);
+                Line, fTravel, fDraw, fZ, ref firstTravel, ref imageOutOfBounds, strokes, onRunStart: MarkBoundary);
+
+        if (warmupScribble is { } w)
+        {
+            var scribbleLines = BuildScribbleLines(w);
+            if (safeBoundaries.Count > 0)
+            {
+                int bodyEnd = lines.Count;
+                int target = bodyStart + (int)Math.Round((bodyEnd - bodyStart) * Math.Clamp(warmupProgress, 0, 1));
+                int spliceAt = safeBoundaries.MinBy(b => Math.Abs(b - target));
+                lines.InsertRange(spliceAt, scribbleLines);
+            }
+            else
+            {
+                lines.AddRange(scribbleLines); // nothing was drawn at all - just tack it on before the footer
+            }
+        }
 
         if (s.LaserMode)
         {
@@ -261,7 +294,7 @@ public static class GCodeGenerator
                 throw new BlockedAreaException(s);
         }
 
-        return new Result(g.ToString(), textOutOfBounds, shapesOutOfBounds, strokes, imageOutOfBounds);
+        return new Result(string.Concat(lines.Select(l => l + "\r\n")), textOutOfBounds, shapesOutOfBounds, strokes, imageOutOfBounds);
     }
 
     /// <summary>True if (x,y) - in the same top-left/Y-down bed-space mm as <see cref="Stroke"/> - falls

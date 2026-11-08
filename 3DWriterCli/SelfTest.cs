@@ -31,19 +31,31 @@ public static class SelfTest
         Console.WriteLine("Self-test OK");
     }
 
-    /// <summary>The warmup scribble should draw a dense zigzag, pen held down throughout, before
-    /// anything else, and still respect the blocked-zone check like every other draw position.</summary>
+    /// <summary>The warmup scribble should draw a dense zigzag, pen held down throughout, spliced
+    /// in roughly at warmupProgress through the job (not right at the start or dangling at the very
+    /// end), only at a safe pen-up boundary, and still respect the blocked-zone check.</summary>
     private static void RunWarmupScribbleTests(FontData font, WriterSettings settings)
     {
         var placed = new WriterSettings { OffsetX = 45, OffsetY = 45 };
-        var result = GCodeGenerator.Generate("", "cursive", font, placed, warmupScribble: (60, 60, 10));
-        Assert(result.GCode.Split("G1 ").Length > 5, "warmup scribble should emit several zigzag draw moves");
-        // The scribble is the very first thing drawn - its first G1 move must come before any G28/G21 for... no,
-        // it comes after homing/G21 (needs the machine homed first) but before anything else drawable.
-        Assert(result.GCode.IndexOf("G21") < result.GCode.IndexOf("G1 "), "scribble should still come after G21/homing");
+        const string text = "ABCDEFGHIJ"; // enough glyphs/strokes to have many safe splice points
+        var scribble = (x: 120.0, y: 120.0, size: 10.0);
+
+        var without = GCodeGenerator.Generate(text, "cursive", font, placed);
+        var with = GCodeGenerator.Generate(text, "cursive", font, placed, warmupScribble: scribble);
+        var withLines = with.GCode.Split("\r\n");
+
+        Assert(with.GCode.Length > without.GCode.Length, "warmup scribble should add lines to the job");
+        Assert(with.GCode.Split("G1 ").Length > without.GCode.Split("G1 ").Length + 8,
+            "warmup scribble should emit several zigzag draw moves");
+
+        // wgx(120) = 120 + ToolOffsetX(-10) = 110 - the scribble's travel-to-start move, a unique marker.
+        int scribbleIndex = Array.FindIndex(withLines, l => l.StartsWith("G0 X110"));
+        Assert(scribbleIndex >= 0, "expected to find the scribble's travel-to-start move in the output");
+        double position = (double)scribbleIndex / withLines.Length;
+        Assert(position is > 0.25 and < 0.9, $"scribble should land roughly mid-job (60% default), not at the very start/end - was at {position:P0}");
 
         bool blocked = false;
-        try { GCodeGenerator.Generate("", "cursive", font, placed, warmupScribble: (0, 0, 5)); }
+        try { GCodeGenerator.Generate(text, "cursive", font, placed, warmupScribble: (0, 0, 5)); }
         catch (BlockedAreaException) { blocked = true; }
         Assert(blocked, "a scribble placed in the bed-edge margin should raise BlockedAreaException");
     }
