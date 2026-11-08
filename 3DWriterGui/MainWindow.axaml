@@ -6,16 +6,8 @@
         x:Class="WriterGui.MainWindow"
         Icon="avares://3DWriterGui/icon.png"
         Title="3DWriter" Width="1100" Height="600">
-    <Grid ColumnDefinitions="140,360,*" Margin="10">
-        <DockPanel Grid.Column="0" Margin="0,0,10,0">
-            <TextBlock DockPanel.Dock="Top" Text="Forms" FontWeight="Bold" Margin="0,0,0,6"/>
-            <TextBlock DockPanel.Dock="Top" Text="Drag a form onto the preview to add it." TextWrapping="Wrap" Foreground="Gray" FontSize="11" Margin="0,0,0,6"/>
-            <ScrollViewer>
-                <StackPanel Name="FormsPanel" Spacing="10"/>
-            </ScrollViewer>
-        </DockPanel>
-
-        <Grid Grid.Column="1" Margin="0,0,10,0" RowDefinitions="*,Auto">
+    <Grid ColumnDefinitions="360,*" Margin="10">
+        <Grid Grid.Column="0" Margin="0,0,10,0" RowDefinitions="*,Auto">
         <TabControl Grid.Row="0">
             <TabControl.Styles>
                 <Style Selector="TabItem">
@@ -52,6 +44,10 @@
                         <Button Name="UndoButton" Content="Undo" Width="103" Click="OnUndoClick" IsEnabled="False"/>
                         <Button Name="RedoButton" Content="Redo" Width="103" Click="OnRedoClick" IsEnabled="False"/>
                     </StackPanel>
+
+                    <TextBlock Text="Forms" FontWeight="Bold"/>
+                    <TextBlock Text="Drag a form onto the preview to add it." TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
+                    <WrapPanel Name="FormsPanel"/>
                 </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -161,7 +157,7 @@
         </StackPanel>
         </Grid>
 
-        <Grid Grid.Column="2" RowDefinitions="Auto,*">
+        <Grid Grid.Column="1" RowDefinitions="Auto,*">
             <DockPanel Grid.Row="0" Margin="0,0,0,6">
                 <TextBlock Text="Zoom" VerticalAlignment="Center" Margin="0,0,6,0"/>
                 <TextBlock Name="ZoomValueText" DockPanel.Dock="Right" Width="50" VerticalAlignment="Center"/>
