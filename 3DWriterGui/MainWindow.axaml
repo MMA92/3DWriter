@@ -104,6 +104,19 @@
             </StackPanel>
             <CheckBox Name="ImageInvertBox" Content="Invert (light pixels / non-edges)"/>
 
+            <TextBlock Text="Warmup scribble" FontWeight="Bold"/>
+            <TextBlock Text="Draws a small zigzag first, pen held down, so a ballpoint pen that's gone dry starts flowing again before the real job." TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
+            <CheckBox Name="WarmupScribbleBox" Content="Enable"/>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <NumericUpDown Name="WarmupXBox" Minimum="0" Maximum="2000" Value="20" Increment="1" FormatString="0" Width="135" ToolTip.Tip="Pick a spot nothing else in the job uses"/>
+                <TextBlock Text="x" VerticalAlignment="Center"/>
+                <NumericUpDown Name="WarmupYBox" Minimum="0" Maximum="2000" Value="10" Increment="1" FormatString="0" Width="135"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <NumericUpDown Name="WarmupSizeBox" Minimum="2" Maximum="100" Value="10" Increment="1" FormatString="0" Width="135" ToolTip.Tip="Scribble square size (mm)"/>
+                <TextBlock Text="size mm" VerticalAlignment="Center"/>
+            </StackPanel>
+
             <Button Name="RenderButton" Content="Render" HorizontalAlignment="Stretch" Click="OnRenderClick"/>
             <Button Name="SaveButton" Content="Save GCode..." HorizontalAlignment="Stretch" Click="OnSaveClick" IsEnabled="False"/>
 

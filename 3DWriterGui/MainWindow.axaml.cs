@@ -721,9 +721,13 @@ public partial class MainWindow : Window
                     : ImageGCodeGenerator.LoadBitmap(_imagePath, imageWidthMm, imagePixelMm, (byte)(ImageThresholdBox.Value ?? 128m), invert, ImageDitherBox.IsChecked == true);
             }
 
+            (double, double, double)? warmup = WarmupScribbleBox.IsChecked == true
+                ? ((double)(WarmupXBox.Value ?? 20m), (double)(WarmupYBox.Value ?? 10m), (double)(WarmupSizeBox.Value ?? 10m))
+                : null;
+
             var font = FontData.Load(Path.Combine(_fontsDir, fontName + ".cmf"));
             var result = GCodeGenerator.Generate(TextInputBox.Text ?? "", fontName, font, settings, _shapes,
-                imageBitmap, imagePixelMm, imageOffsetX, imageOffsetY);
+                imageBitmap, imagePixelMm, imageOffsetX, imageOffsetY, warmup);
 
             foreach (var stroke in result.Strokes)
             {

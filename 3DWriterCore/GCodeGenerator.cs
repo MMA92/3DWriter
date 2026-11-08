@@ -45,8 +45,14 @@ public static class GCodeGenerator
     /// <param name="imagePixelSizeMm">mm per pixel row/column - required (and only used) when <paramref name="imageBitmap"/> is set.</param>
     /// <param name="imageOffsetX">Image placement, independent of the text/shape (s.OffsetX/Y) origin -
     /// defaults to s.OffsetX/Y (same spot as text) when not given.</param>
+    /// <param name="warmupScribble">Draws a small dense zigzag at (x, y) - size x size mm - before anything
+    /// else, pen held down the whole time. Ballpoint pens in particular can run dry/skip after sitting or
+    /// during long straight moves; a few seconds of continuous direction changes gets the ink flowing
+    /// before the actual job starts, like scribbling on scratch paper first. Pick a spot the rest of the
+    /// job doesn't use (e.g. a corner) - it's checked against the bed/blocked-zone like everything else.</param>
     public static Result Generate(string text, string fontName, FontData font, WriterSettings s, IReadOnlyList<IShape>? shapes = null,
-        bool[,]? imageBitmap = null, double imagePixelSizeMm = 0, double? imageOffsetX = null, double? imageOffsetY = null)
+        bool[,]? imageBitmap = null, double imagePixelSizeMm = 0, double? imageOffsetX = null, double? imageOffsetY = null,
+        (double x, double y, double size)? warmupScribble = null)
     {
         var strokes = new List<Stroke>();
         double charHeight = font.Height * s.Scale;
@@ -96,6 +102,30 @@ public static class GCodeGenerator
         else
         {
             Line($"G0 Z{F(s.InitialClearance)} F{fTravel}"); // Zeile 13: einmaliger Extra-Hub direkt nach dem Homen (höher als das normale PenUp danach)
+        }
+
+        if (warmupScribble is { } w)
+        {
+            if (IsInBlockedZone(w.x, w.y, s) || IsInBlockedZone(w.x + w.size, w.y + w.size, s))
+                throw new BlockedAreaException(s);
+
+            double wgx(double x) => x + s.ToolOffsetX;
+            double wgy(double y) => s.BedHeight - y + s.ToolOffsetY;
+
+            Line(s.LaserMode ? s.PenUp : $"G0 Z{F(s.InitialClearance)} F{fTravel}");
+            Line($"G0 X{F(wgx(w.x))} Y{F(wgy(w.y))} F{fTravel}");
+            Line(s.LaserMode ? (s.DryRun ? s.PenUp : s.PenDown) : $"G0 Z{(s.DryRun ? s.PenUp : s.PenDown)} F{fZ}");
+            firstTravel = false;
+
+            const int zigzags = 10; // back-and-forth passes - plenty of direction changes to get a ballpoint rolling again
+            for (int i = 0; i < zigzags; i++)
+            {
+                double y = w.y + w.size * i / (zigzags - 1.0);
+                double xEnd = i % 2 == 0 ? w.x + w.size : w.x;
+                Line($"G1 X{F(wgx(xEnd))} Y{F(wgy(y))} F{fDraw}");
+            }
+
+            Line(s.LaserMode ? s.PenUp : $"G0 Z{s.PenUp} F{fZ}");
         }
 
         foreach (var rawLine in text.Replace("\r\n", "\n").Split('\n'))

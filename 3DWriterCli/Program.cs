@@ -24,6 +24,8 @@ string imageMode = "fill"; // fill | outline
 int imageEdgeThreshold = 100;
 double? imageOffsetX = null;
 double? imageOffsetY = null;
+bool warmup = false;
+double warmupX = 20, warmupY = 10, warmupSize = 10; // default clear of the stock blocked margins (left 16/top 6)
 var s = WriterSettings.Load(Path.Combine(AppContext.BaseDirectory, "settings.json"));
 
 for (int i = 0; i < args.Length; i++)
@@ -49,6 +51,10 @@ for (int i = 0; i < args.Length; i++)
         case "--image-edge-threshold": imageEdgeThreshold = (int)NextD(); break;
         case "--image-offset-x": imageOffsetX = NextD(); break;
         case "--image-offset-y": imageOffsetY = NextD(); break;
+        case "--warmup-scribble": warmup = true; break;
+        case "--warmup-x": warmupX = NextD(); break;
+        case "--warmup-y": warmupY = NextD(); break;
+        case "--warmup-size": warmupSize = NextD(); break;
         case "--scale": s.Scale = NextD(); break;
         case "--bed-width": s.BedWidth = NextD(); break;
         case "--bed-height": s.BedHeight = NextD(); break;
@@ -125,7 +131,8 @@ var fontData = FontData.Load(fontPath);
 try
 {
     var result = GCodeGenerator.Generate(text, font, fontData, s, imageBitmap: imageBitmap, imagePixelSizeMm: imagePixelMm,
-        imageOffsetX: imageOffsetX, imageOffsetY: imageOffsetY);
+        imageOffsetX: imageOffsetX, imageOffsetY: imageOffsetY,
+        warmupScribble: warmup ? (warmupX, warmupY, warmupSize) : null);
     File.WriteAllText(outPath, result.GCode);
     Console.WriteLine($"Wrote {outPath}");
     if (result.OutOfBounds)
@@ -170,6 +177,12 @@ static void PrintHelp()
       --image-invert           Draw light pixels / non-edges instead of dark/edges
       --image-offset-x <mm>    Image placement, independent of --offset-x/y (default: same as text)
       --image-offset-y <mm>    Same, Y axis
+
+      --warmup-scribble        Draw a small zigzag first to get a ballpoint pen flowing before
+                               the real job (pen stays down, lots of direction changes)
+      --warmup-x <mm>          Scribble position, pick a spot nothing else uses (default: 20)
+      --warmup-y <mm>          Same, Y axis (default: 10)
+      --warmup-size <mm>       Scribble square size (default: 10)
 
       Defaults below come from settings.json next to the binary (created there with
       these values on first run) - edit that file to change them permanently, or

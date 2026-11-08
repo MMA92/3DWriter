@@ -27,7 +27,25 @@ public static class SelfTest
 
         RunShapeTests(font, settings);
         RunImageTests();
+        RunWarmupScribbleTests(font, settings);
         Console.WriteLine("Self-test OK");
+    }
+
+    /// <summary>The warmup scribble should draw a dense zigzag, pen held down throughout, before
+    /// anything else, and still respect the blocked-zone check like every other draw position.</summary>
+    private static void RunWarmupScribbleTests(FontData font, WriterSettings settings)
+    {
+        var placed = new WriterSettings { OffsetX = 45, OffsetY = 45 };
+        var result = GCodeGenerator.Generate("", "cursive", font, placed, warmupScribble: (60, 60, 10));
+        Assert(result.GCode.Split("G1 ").Length > 5, "warmup scribble should emit several zigzag draw moves");
+        // The scribble is the very first thing drawn - its first G1 move must come before any G28/G21 for... no,
+        // it comes after homing/G21 (needs the machine homed first) but before anything else drawable.
+        Assert(result.GCode.IndexOf("G21") < result.GCode.IndexOf("G1 "), "scribble should still come after G21/homing");
+
+        bool blocked = false;
+        try { GCodeGenerator.Generate("", "cursive", font, placed, warmupScribble: (0, 0, 5)); }
+        catch (BlockedAreaException) { blocked = true; }
+        Assert(blocked, "a scribble placed in the bed-edge margin should raise BlockedAreaException");
     }
 
     /// <summary>Covers the pure raster-to-GCode path (no file decoding) - a 2-pixel-wide dark
