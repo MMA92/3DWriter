@@ -84,6 +84,9 @@ public partial class MainWindow : Window
         ToolOffsetXBox.Value = (decimal)defaults.ToolOffsetX;
         ToolOffsetYBox.Value = (decimal)defaults.ToolOffsetY;
         InitialClearanceBox.Value = (decimal)defaults.InitialClearance;
+        TravelSpeedBox.Value = (decimal)defaults.TravelSpeed;
+        DrawSpeedBox.Value = (decimal)defaults.DrawSpeed;
+        ZSpeedBox.Value = (decimal)defaults.ZSpeed;
         if (double.TryParse(defaults.PenUp, NumberStyles.Float, CultureInfo.InvariantCulture, out var penUp))
             PenUpBox.Value = (decimal)penUp;
         if (double.TryParse(defaults.PenDown, NumberStyles.Float, CultureInfo.InvariantCulture, out var penDown))
@@ -700,6 +703,9 @@ public partial class MainWindow : Window
             PenUp = ((double)(PenUpBox.Value ?? 12m)).ToString(CultureInfo.InvariantCulture),
             PenDown = ((double)(PenDownBox.Value ?? 8m)).ToString(CultureInfo.InvariantCulture),
             InitialClearance = (double)(InitialClearanceBox.Value ?? 30m),
+            TravelSpeed = (double)(TravelSpeedBox.Value ?? 100m),
+            DrawSpeed = (double)(DrawSpeedBox.Value ?? 40m),
+            ZSpeed = (double)(ZSpeedBox.Value ?? 40m),
             BlockedMarginLeft = _blockedMargins.BlockedMarginLeft,
             BlockedMarginRight = _blockedMargins.BlockedMarginRight,
             BlockedMarginTop = _blockedMargins.BlockedMarginTop,

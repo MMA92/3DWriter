@@ -129,6 +129,20 @@
                     <TextBlock Text="Initial clearance after homing (mm)" FontWeight="Bold"/>
                     <NumericUpDown Name="InitialClearanceBox" Minimum="0" Maximum="200" Value="30" Increment="0.5" FormatString="0.0" Width="135"/>
 
+                    <TextBlock Text="Speed (mm/s)" FontWeight="Bold"/>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <NumericUpDown Name="TravelSpeedBox" Minimum="1" Maximum="500" Value="100" Increment="5" FormatString="0" Width="135" ToolTip.Tip="Pen-up travel speed"/>
+                        <TextBlock Text="travel" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <NumericUpDown Name="DrawSpeedBox" Minimum="1" Maximum="500" Value="40" Increment="5" FormatString="0" Width="135" ToolTip.Tip="Pen-down drawing speed"/>
+                        <TextBlock Text="draw" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <NumericUpDown Name="ZSpeedBox" Minimum="1" Maximum="500" Value="40" Increment="5" FormatString="0" Width="135" ToolTip.Tip="Pen up/down lift speed"/>
+                        <TextBlock Text="Z lift" VerticalAlignment="Center"/>
+                    </StackPanel>
+
                     <TextBlock Text="Warmup scribble" FontWeight="Bold"/>
                     <TextBlock Text="Draws a small zigzag partway through the job, pen held down, so a ballpoint pen that's gone dry starts flowing again." TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
                     <CheckBox Name="WarmupScribbleBox" Content="Enable"/>
