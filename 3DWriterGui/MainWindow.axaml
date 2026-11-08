@@ -5,8 +5,8 @@
         mc:Ignorable="d" d:DesignWidth="1060" d:DesignHeight="600"
         x:Class="WriterGui.MainWindow"
         Icon="avares://3DWriterGui/icon.png"
-        Title="3DWriter" Width="1100" Height="600">
-    <Grid ColumnDefinitions="360,*" Margin="10">
+        Title="3DWriter" Width="1180" Height="600">
+    <Grid ColumnDefinitions="440,*" Margin="10">
         <Grid Grid.Column="0" Margin="0,0,10,0" RowDefinitions="*,Auto">
         <TabControl Grid.Row="0">
             <TabControl.Styles>
@@ -19,13 +19,13 @@
                 <ScrollViewer>
                 <StackPanel Spacing="8" Margin="0,8,0,0">
                     <TextBlock Text="Text" FontWeight="Bold"/>
-                    <TextBox Name="TextInputBox" AcceptsReturn="True" Height="100" Text="Welcome to 3DWriter!"/>
+                    <TextBox Name="TextInputBox" AcceptsReturn="True" Height="100" Text="Welcome to 3DWriter!" ToolTip.Tip="The text to plot. Press Enter for a new line - each line is drawn below the previous one."/>
 
                     <TextBlock Text="Font" FontWeight="Bold"/>
-                    <ComboBox Name="FontBox" HorizontalAlignment="Stretch"/>
+                    <ComboBox Name="FontBox" HorizontalAlignment="Stretch" ToolTip.Tip="Stroke font (.cmf file) used to render the text - each font has its own character set, see fonts folder."/>
 
                     <TextBlock Text="Scale" FontWeight="Bold"/>
-                    <DockPanel>
+                    <DockPanel ToolTip.Tip="Font size multiplier - multiplies the font's native glyph height to get the plotted character height in mm.">
                         <TextBlock Name="ScaleValueText" DockPanel.Dock="Right" Width="40" VerticalAlignment="Center"/>
                         <Slider Name="ScaleSlider" Minimum="0.05" Maximum="1.0" Value="0.2" SmallChange="0.01"/>
                     </DockPanel>
@@ -37,12 +37,12 @@
                 <ScrollViewer>
                 <StackPanel Spacing="8" Margin="0,8,0,0">
                     <TextBlock Text="Drag on empty preview to draw a box, drag/right-click/Delete any shape to move/rotate/remove it (whole unit if loaded from JSON), or drop/load a shapes JSON file. JSON shapes: Box/Rectangle, Line, Triangle, Star, Arrow, Polygon (see forms/shapes-demo.json)." TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
-                    <Button Name="LoadBoxesButton" Content="Load shapes (JSON)..." HorizontalAlignment="Stretch" Click="OnLoadBoxesClick"/>
-                    <Button Name="SaveBoxesButton" Content="Save shapes (JSON)..." HorizontalAlignment="Stretch" Click="OnSaveBoxesClick"/>
-                    <Button Name="ClearBoxesButton" Content="Clear shapes" HorizontalAlignment="Stretch" Click="OnClearBoxesClick"/>
+                    <Button Name="LoadBoxesButton" Content="Load shapes (JSON)..." HorizontalAlignment="Stretch" Click="OnLoadBoxesClick" ToolTip.Tip="Load a shapes JSON file - adds its shapes alongside whatever's already on the canvas."/>
+                    <Button Name="SaveBoxesButton" Content="Save shapes (JSON)..." HorizontalAlignment="Stretch" Click="OnSaveBoxesClick" ToolTip.Tip="Save every shape currently on the canvas to a JSON file."/>
+                    <Button Name="ClearBoxesButton" Content="Clear shapes" HorizontalAlignment="Stretch" Click="OnClearBoxesClick" ToolTip.Tip="Remove every shape from the canvas (text and image are unaffected)."/>
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <Button Name="UndoButton" Content="Undo" Width="103" Click="OnUndoClick" IsEnabled="False"/>
-                        <Button Name="RedoButton" Content="Redo" Width="103" Click="OnRedoClick" IsEnabled="False"/>
+                        <Button Name="UndoButton" Content="Undo" Width="103" Click="OnUndoClick" IsEnabled="False" ToolTip.Tip="Undo the last shape add/move/delete."/>
+                        <Button Name="RedoButton" Content="Redo" Width="103" Click="OnRedoClick" IsEnabled="False" ToolTip.Tip="Redo the last undone change."/>
                     </StackPanel>
 
                     <TextBlock Text="Forms" FontWeight="Bold"/>
@@ -56,8 +56,8 @@
                 <ScrollViewer>
                 <StackPanel Spacing="8" Margin="0,8,0,0">
                     <TextBlock Text="Rastered alongside the text/shapes into the same GCode job." TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
-                    <Button Name="LoadImageButton" Content="Load image..." HorizontalAlignment="Stretch" Click="OnLoadImageClick"/>
-                    <Button Name="ClearImageButton" Content="Clear image" HorizontalAlignment="Stretch" Click="OnClearImageClick" IsEnabled="False"/>
+                    <Button Name="LoadImageButton" Content="Load image..." HorizontalAlignment="Stretch" Click="OnLoadImageClick" ToolTip.Tip="Pick a raster image (png/jpg/bmp/gif) to rasterize into pen strokes alongside the text/shapes."/>
+                    <Button Name="ClearImageButton" Content="Clear image" HorizontalAlignment="Stretch" Click="OnClearImageClick" IsEnabled="False" ToolTip.Tip="Remove the loaded image (text and shapes are unaffected)."/>
                     <TextBlock Name="ImageFileText" TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <NumericUpDown Name="ImageOffsetXBox" Minimum="-2000" Maximum="2000" Value="45" Increment="1" FormatString="0" Width="135" ToolTip.Tip="Image position X (mm) - independent of the text offset"/>
@@ -78,20 +78,20 @@
                     </StackPanel>
 
                     <TextBlock Text="Mode" FontWeight="Bold" FontSize="12"/>
-                    <ComboBox Name="ImageModeBox" HorizontalAlignment="Stretch" SelectedIndex="0">
+                    <ComboBox Name="ImageModeBox" HorizontalAlignment="Stretch" SelectedIndex="0" ToolTip.Tip="Fill: rasters solid areas like a filled silhouette. Outline: only draws detected edges - fewer/shorter strokes, sketch-like, no filled areas.">
                         <ComboBoxItem Content="Fill (rastered)"/>
                         <ComboBoxItem Content="Outline (edge detection)"/>
                     </ComboBox>
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <NumericUpDown Name="ImageThresholdBox" Minimum="0" Maximum="255" Value="128" Increment="5" FormatString="0" Width="135" ToolTip.Tip="Fill mode: grayscale cutoff - darker than this is drawn"/>
+                        <NumericUpDown Name="ImageThresholdBox" Minimum="0" Maximum="255" Value="128" Increment="5" FormatString="0" Width="135" ToolTip.Tip="Fill mode only: grayscale cutoff 0-255 - pixels darker than this are drawn, lighter ones are left blank."/>
                         <TextBlock Text="threshold (fill)" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <CheckBox Name="ImageDitherBox" Content="Dither (fill mode, better for photos)"/>
+                    <CheckBox Name="ImageDitherBox" Content="Dither (fill mode, better for photos)" ToolTip.Tip="Floyd-Steinberg error diffusion instead of a hard threshold cutoff - turns grayscale gradients into a halftone dot pattern, usually more recognizable for photos."/>
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <NumericUpDown Name="ImageEdgeThresholdBox" Minimum="1" Maximum="1000" Value="100" Increment="10" FormatString="0" Width="135" ToolTip.Tip="Outline mode: Sobel edge cutoff - lower = more edges"/>
+                        <NumericUpDown Name="ImageEdgeThresholdBox" Minimum="1" Maximum="1000" Value="100" Increment="10" FormatString="0" Width="135" ToolTip.Tip="Outline mode only: Sobel gradient magnitude cutoff (roughly 0-1020) - lower finds more (fainter) edges, higher only strong ones."/>
                         <TextBlock Text="edge threshold" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <CheckBox Name="ImageInvertBox" Content="Invert (light pixels / non-edges)"/>
+                    <CheckBox Name="ImageInvertBox" Content="Invert (light pixels / non-edges)" ToolTip.Tip="Fill mode: draw light pixels instead of dark ones. Outline mode: draw non-edges instead of edges."/>
                 </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -101,16 +101,16 @@
                 <StackPanel Spacing="8" Margin="0,8,0,0">
                     <TextBlock Text="Bed size (mm)" FontWeight="Bold"/>
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <NumericUpDown Name="BedWidthBox" Minimum="10" Maximum="2000" Value="200" Increment="5" FormatString="0" Width="135"/>
+                        <NumericUpDown Name="BedWidthBox" Minimum="10" Maximum="2000" Value="200" Increment="5" FormatString="0" Width="135" ToolTip.Tip="Printable bed width - the design is checked against this and flagged if it goes out of bounds."/>
                         <TextBlock Text="x" VerticalAlignment="Center"/>
-                        <NumericUpDown Name="BedHeightBox" Minimum="10" Maximum="2000" Value="200" Increment="5" FormatString="0" Width="135"/>
+                        <NumericUpDown Name="BedHeightBox" Minimum="10" Maximum="2000" Value="200" Increment="5" FormatString="0" Width="135" ToolTip.Tip="Printable bed height, same bounds-checking as width."/>
                     </StackPanel>
 
                     <TextBlock Text="Text offset (mm)" FontWeight="Bold"/>
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <NumericUpDown Name="OffsetXBox" Minimum="0" Maximum="2000" Value="45" Increment="1" FormatString="0" Width="135"/>
+                        <NumericUpDown Name="OffsetXBox" Minimum="0" Maximum="2000" Value="45" Increment="1" FormatString="0" Width="135" ToolTip.Tip="Where the text/shapes block starts on the bed, X axis - top-left corner of the design."/>
                         <TextBlock Text="x" VerticalAlignment="Center"/>
-                        <NumericUpDown Name="OffsetYBox" Minimum="0" Maximum="2000" Value="45" Increment="1" FormatString="0" Width="135"/>
+                        <NumericUpDown Name="OffsetYBox" Minimum="0" Maximum="2000" Value="45" Increment="1" FormatString="0" Width="135" ToolTip.Tip="Same, Y axis."/>
                     </StackPanel>
 
                     <TextBlock Text="Tool offset (mm) - pen tip vs. nozzle" FontWeight="Bold"/>
@@ -122,12 +122,12 @@
 
                     <TextBlock Text="Pen height Z (mm)" FontWeight="Bold"/>
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <NumericUpDown Name="PenUpBox" Minimum="0" Maximum="200" Value="12" Increment="0.5" FormatString="0.0" Width="135"/>
+                        <NumericUpDown Name="PenUpBox" Minimum="0" Maximum="200" Value="12" Increment="0.5" FormatString="0.0" Width="135" ToolTip.Tip="Z height while the pen is lifted/traveling - should clear the paper without hitting anything."/>
                         <TextBlock Text="up/down" VerticalAlignment="Center"/>
-                        <NumericUpDown Name="PenDownBox" Minimum="0" Maximum="200" Value="8" Increment="0.5" FormatString="0.0" Width="135"/>
+                        <NumericUpDown Name="PenDownBox" Minimum="0" Maximum="200" Value="8" Increment="0.5" FormatString="0.0" Width="135" ToolTip.Tip="Z height while drawing - low enough for firm paper contact, not so low it digs in."/>
                     </StackPanel>
                     <TextBlock Text="Initial clearance after homing (mm)" FontWeight="Bold"/>
-                    <NumericUpDown Name="InitialClearanceBox" Minimum="0" Maximum="200" Value="30" Increment="0.5" FormatString="0.0" Width="135"/>
+                    <NumericUpDown Name="InitialClearanceBox" Minimum="0" Maximum="200" Value="30" Increment="0.5" FormatString="0.0" Width="135" ToolTip.Tip="One-off extra-high Z lift right after homing, before the first real move - a safety margin in case the bed sits higher than expected."/>
 
                     <TextBlock Text="Speed (mm/s)" FontWeight="Bold"/>
                     <StackPanel Orientation="Horizontal" Spacing="6">
@@ -145,11 +145,11 @@
 
                     <TextBlock Text="Warmup scribble" FontWeight="Bold"/>
                     <TextBlock Text="Draws a small zigzag partway through the job, pen held down, so a ballpoint pen that's gone dry starts flowing again." TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
-                    <CheckBox Name="WarmupScribbleBox" Content="Enable"/>
+                    <CheckBox Name="WarmupScribbleBox" Content="Enable" ToolTip.Tip="Turn the warmup scribble on for this render."/>
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <NumericUpDown Name="WarmupXBox" Minimum="0" Maximum="2000" Value="20" Increment="1" FormatString="0" Width="135" ToolTip.Tip="Pick a spot nothing else in the job uses"/>
+                        <NumericUpDown Name="WarmupXBox" Minimum="0" Maximum="2000" Value="20" Increment="1" FormatString="0" Width="135" ToolTip.Tip="Scribble position X - pick a spot nothing else in the job uses, e.g. a corner."/>
                         <TextBlock Text="x" VerticalAlignment="Center"/>
-                        <NumericUpDown Name="WarmupYBox" Minimum="0" Maximum="2000" Value="10" Increment="1" FormatString="0" Width="135"/>
+                        <NumericUpDown Name="WarmupYBox" Minimum="0" Maximum="2000" Value="10" Increment="1" FormatString="0" Width="135" ToolTip.Tip="Scribble position Y."/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <NumericUpDown Name="WarmupSizeBox" Minimum="2" Maximum="100" Value="10" Increment="1" FormatString="0" Width="135" ToolTip.Tip="Scribble square size (mm)"/>
