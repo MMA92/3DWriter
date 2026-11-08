@@ -26,7 +26,33 @@ public static class SelfTest
         Assert(!spaceResult.GCode.Contains("G1 "), "space-only text should produce no draw strokes");
 
         RunShapeTests(font, settings);
+        RunImageTests();
         Console.WriteLine("Self-test OK");
+    }
+
+    /// <summary>Covers the pure raster-to-GCode path (no file decoding) - a 2-pixel-wide dark
+    /// stripe should draw exactly one run per row, and an all-light bitmap should draw nothing.</summary>
+    private static void RunImageTests()
+    {
+        var settings = new WriterSettings { OffsetX = 50, OffsetY = 50 };
+
+        var stripe = new bool[2, 3];
+        stripe[0, 1] = true; // single dark pixel in the middle of row 0
+        var result = ImageGCodeGenerator.Generate(stripe, 1.0, settings);
+        Assert(result.GCode.Contains("G21"), "expected G21 (units) in image output");
+        Assert(result.GCode.Split("G1 ").Length == 2, "one dark pixel should produce exactly one draw move");
+        Assert(!result.OutOfBounds, "a small bitmap near the offset shouldn't be out of bounds");
+
+        var blank = new bool[2, 2];
+        var blankResult = ImageGCodeGenerator.Generate(blank, 1.0, settings);
+        Assert(!blankResult.GCode.Contains("G1 "), "an all-light bitmap should produce no draw moves");
+
+        bool blocked = false;
+        var edgeBitmap = new bool[1, 1];
+        edgeBitmap[0, 0] = true;
+        try { ImageGCodeGenerator.Generate(edgeBitmap, 1.0, new WriterSettings { OffsetX = 0, OffsetY = 0 }); }
+        catch (BlockedAreaException) { blocked = true; }
+        Assert(blocked, "a pixel in the bed-edge margin should raise BlockedAreaException");
     }
 
     /// <summary>Covers the shape primitives (Box/Line/Triangle/Star/Arrow/Polygon), the

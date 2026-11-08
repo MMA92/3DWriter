@@ -32,13 +32,21 @@ public static class GCodeGenerator
     /// <summary>A single drawn stroke in bed-space mm (top-left origin, Y down) - for GUI preview only, not used for GCode.</summary>
     public readonly record struct Stroke(double X1, double Y1, double X2, double Y2);
 
-    public sealed record Result(string GCode, bool TextOutOfBounds, bool ShapesOutOfBounds, IReadOnlyList<Stroke> Strokes)
+    public sealed record Result(string GCode, bool TextOutOfBounds, bool ShapesOutOfBounds, IReadOnlyList<Stroke> Strokes, bool ImageOutOfBounds = false)
     {
-        /// <summary>True if either text or shapes left the bed - kept for callers (CLI) that don't care which.</summary>
-        public bool OutOfBounds => TextOutOfBounds || ShapesOutOfBounds;
+        /// <summary>True if text, shapes, or the image left the bed - kept for callers (CLI) that don't care which.</summary>
+        public bool OutOfBounds => TextOutOfBounds || ShapesOutOfBounds || ImageOutOfBounds;
     }
 
-    public static Result Generate(string text, string fontName, FontData font, WriterSettings s, IReadOnlyList<IShape>? shapes = null)
+    /// <param name="imageBitmap">Optional raster image (see <see cref="ImageGCodeGenerator.LoadBitmap"/>/
+    /// <see cref="ImageGCodeGenerator.LoadEdgeBitmap"/>) to render as part of this same job - one shared
+    /// header/footer/homing instead of a separate image-only GCode file. Rastered after text and shapes,
+    /// before the final pen-lift/home-return.</param>
+    /// <param name="imagePixelSizeMm">mm per pixel row/column - required (and only used) when <paramref name="imageBitmap"/> is set.</param>
+    /// <param name="imageOffsetX">Image placement, independent of the text/shape (s.OffsetX/Y) origin -
+    /// defaults to s.OffsetX/Y (same spot as text) when not given.</param>
+    public static Result Generate(string text, string fontName, FontData font, WriterSettings s, IReadOnlyList<IShape>? shapes = null,
+        bool[,]? imageBitmap = null, double imagePixelSizeMm = 0, double? imageOffsetX = null, double? imageOffsetY = null)
     {
         var strokes = new List<Stroke>();
         double charHeight = font.Height * s.Scale;
@@ -194,6 +202,11 @@ public static class GCodeGenerator
             Line(s.LaserMode ? s.PenUp : $"G0 Z{s.PenUp} F{fZ}");
         }
 
+        bool imageOutOfBounds = false;
+        if (imageBitmap is not null)
+            ImageGCodeGenerator.EmitRaster(imageBitmap, imagePixelSizeMm, imageOffsetX ?? s.OffsetX, imageOffsetY ?? s.OffsetY, s,
+                Line, fTravel, fDraw, fZ, ref firstTravel, ref imageOutOfBounds, strokes);
+
         if (s.LaserMode)
         {
             Line("G0 F3000");
@@ -218,7 +231,7 @@ public static class GCodeGenerator
                 throw new BlockedAreaException(s);
         }
 
-        return new Result(g.ToString(), textOutOfBounds, shapesOutOfBounds, strokes);
+        return new Result(g.ToString(), textOutOfBounds, shapesOutOfBounds, strokes, imageOutOfBounds);
     }
 
     /// <summary>True if (x,y) - in the same top-left/Y-down bed-space mm as <see cref="Stroke"/> - falls

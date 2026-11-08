@@ -69,6 +69,41 @@
                 <Button Name="RedoButton" Content="Redo" Width="103" Click="OnRedoClick" IsEnabled="False"/>
             </StackPanel>
 
+            <TextBlock Text="Image" FontWeight="Bold"/>
+            <TextBlock Text="Rastered alongside the text/shapes above into the same GCode job." TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
+            <Button Name="LoadImageButton" Content="Load image..." HorizontalAlignment="Stretch" Click="OnLoadImageClick"/>
+            <Button Name="ClearImageButton" Content="Clear image" HorizontalAlignment="Stretch" Click="OnClearImageClick" IsEnabled="False"/>
+            <TextBlock Name="ImageFileText" TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <NumericUpDown Name="ImageOffsetXBox" Minimum="-2000" Maximum="2000" Value="45" Increment="1" FormatString="0" Width="135" ToolTip.Tip="Image position X (mm) - independent of the text offset"/>
+                <TextBlock Text="x" VerticalAlignment="Center"/>
+                <NumericUpDown Name="ImageOffsetYBox" Minimum="-2000" Maximum="2000" Value="45" Increment="1" FormatString="0" Width="135" ToolTip.Tip="Image position Y (mm)"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <NumericUpDown Name="ImageWidthBox" Minimum="1" Maximum="2000" Value="100" Increment="5" FormatString="0" Width="135" ToolTip.Tip="Output width (mm), height follows aspect ratio"/>
+                <TextBlock Text="width mm" VerticalAlignment="Center"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <NumericUpDown Name="ImageResolutionBox" Minimum="0.1" Maximum="20" Value="0.5" Increment="0.1" FormatString="0.0" Width="135" ToolTip.Tip="mm per raster line - smaller = finer but slower"/>
+                <TextBlock Text="mm/pixel" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <TextBlock Text="Mode" FontWeight="Bold" FontSize="12"/>
+            <ComboBox Name="ImageModeBox" HorizontalAlignment="Stretch" SelectedIndex="0">
+                <ComboBoxItem Content="Fill (rastered)"/>
+                <ComboBoxItem Content="Outline (edge detection)"/>
+            </ComboBox>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <NumericUpDown Name="ImageThresholdBox" Minimum="0" Maximum="255" Value="128" Increment="5" FormatString="0" Width="135" ToolTip.Tip="Fill mode: grayscale cutoff - darker than this is drawn"/>
+                <TextBlock Text="threshold (fill)" VerticalAlignment="Center"/>
+            </StackPanel>
+            <CheckBox Name="ImageDitherBox" Content="Dither (fill mode, better for photos)"/>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <NumericUpDown Name="ImageEdgeThresholdBox" Minimum="1" Maximum="1000" Value="100" Increment="10" FormatString="0" Width="135" ToolTip.Tip="Outline mode: Sobel edge cutoff - lower = more edges"/>
+                <TextBlock Text="edge threshold" VerticalAlignment="Center"/>
+            </StackPanel>
+            <CheckBox Name="ImageInvertBox" Content="Invert (light pixels / non-edges)"/>
+
             <Button Name="RenderButton" Content="Render" HorizontalAlignment="Stretch" Click="OnRenderClick"/>
             <Button Name="SaveButton" Content="Save GCode..." HorizontalAlignment="Stretch" Click="OnSaveClick" IsEnabled="False"/>
 

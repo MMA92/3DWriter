@@ -14,6 +14,16 @@ string font = "cursive";
 string fontsDir = Path.Combine(AppContext.BaseDirectory, "fonts");
 string outPath = "3dwriter.gcode";
 bool listFonts = false;
+string? imagePath = null;
+double imageWidthMm = 100;
+double imagePixelMm = 0.5;
+byte imageThreshold = 128;
+bool imageInvert = false;
+bool imageDither = false;
+string imageMode = "fill"; // fill | outline
+int imageEdgeThreshold = 100;
+double? imageOffsetX = null;
+double? imageOffsetY = null;
 var s = WriterSettings.Load(Path.Combine(AppContext.BaseDirectory, "settings.json"));
 
 for (int i = 0; i < args.Length; i++)
@@ -29,6 +39,16 @@ for (int i = 0; i < args.Length; i++)
         case "--fonts-dir": fontsDir = Next(); break;
         case "--out": outPath = Next(); break;
         case "--list-fonts": listFonts = true; break;
+        case "--image": imagePath = Next(); break;
+        case "--image-width": imageWidthMm = NextD(); break;
+        case "--image-resolution": imagePixelMm = NextD(); break;
+        case "--image-threshold": imageThreshold = byte.Parse(Next(), CultureInfo.InvariantCulture); break;
+        case "--image-invert": imageInvert = true; break;
+        case "--image-dither": imageDither = true; break;
+        case "--image-mode": imageMode = Next().ToLowerInvariant(); break;
+        case "--image-edge-threshold": imageEdgeThreshold = (int)NextD(); break;
+        case "--image-offset-x": imageOffsetX = NextD(); break;
+        case "--image-offset-y": imageOffsetY = NextD(); break;
         case "--scale": s.Scale = NextD(); break;
         case "--bed-width": s.BedWidth = NextD(); break;
         case "--bed-height": s.BedHeight = NextD(); break;
@@ -67,11 +87,30 @@ if (listFonts)
 }
 
 text ??= textFile is not null ? File.ReadAllText(textFile) : null;
-if (text is null)
+if (text is null && imagePath is null)
 {
-    Console.Error.WriteLine("Provide text with --text \"...\" or --text-file <path>.\n");
+    Console.Error.WriteLine("Provide text with --text \"...\" or --text-file <path>, and/or an image with --image <path>.\n");
     PrintHelp();
     return 1;
+}
+text ??= ""; // image-only job: still needs a font loaded below (harmless - no chars to render)
+
+bool[,]? imageBitmap = null;
+if (imagePath is not null)
+{
+    if (!File.Exists(imagePath)) { Console.Error.WriteLine($"Image not found: {imagePath}"); return 1; }
+    if (imageMode is not ("fill" or "outline")) { Console.Error.WriteLine("--image-mode must be 'fill' or 'outline'"); return 1; }
+    try
+    {
+        imageBitmap = imageMode == "outline"
+            ? ImageGCodeGenerator.LoadEdgeBitmap(imagePath, imageWidthMm, imagePixelMm, imageEdgeThreshold, imageInvert)
+            : ImageGCodeGenerator.LoadBitmap(imagePath, imageWidthMm, imagePixelMm, imageThreshold, imageInvert, imageDither);
+    }
+    catch (Exception ex) when (ex is not (UnsupportedCharacterException or BlockedAreaException))
+    {
+        Console.Error.WriteLine($"Failed to load image: {ex.Message}");
+        return 1;
+    }
 }
 
 string fontPath = Path.Combine(fontsDir, font + ".cmf");
@@ -85,7 +124,8 @@ var fontData = FontData.Load(fontPath);
 
 try
 {
-    var result = GCodeGenerator.Generate(text, font, fontData, s);
+    var result = GCodeGenerator.Generate(text, font, fontData, s, imageBitmap: imageBitmap, imagePixelSizeMm: imagePixelMm,
+        imageOffsetX: imageOffsetX, imageOffsetY: imageOffsetY);
     File.WriteAllText(outPath, result.GCode);
     Console.WriteLine($"Wrote {outPath}");
     if (result.OutOfBounds)
@@ -116,6 +156,20 @@ static void PrintHelp()
       --fonts-dir <path>       Directory with .cmf font files (default: ./fonts)
       --out <path>             Output GCode file (default: 3dwriter.gcode)
       --list-fonts             List available fonts in --fonts-dir and exit
+
+      --image <path>           Also render a raster image (png/jpg/bmp/...), combined with
+                               --text in the same job if both are given
+      --image-width <mm>       Physical output width, height follows aspect ratio (default: 100)
+      --image-resolution <mm>  Pixel size in mm - smaller = finer detail, slower (default: 0.5)
+      --image-mode <fill|outline> fill = rastered/filled (default), outline = Sobel edge detection
+                               (sketch-like, fewer strokes, no filled areas)
+      --image-threshold <0-255> Fill mode: grayscale cutoff, darker-than drawn (default: 128)
+      --image-dither           Fill mode: Floyd-Steinberg dithering instead of a hard cutoff -
+                               better for photos/gradients
+      --image-edge-threshold <n> Outline mode: Sobel gradient cutoff, lower = more edges (default: 100)
+      --image-invert           Draw light pixels / non-edges instead of dark/edges
+      --image-offset-x <mm>    Image placement, independent of --offset-x/y (default: same as text)
+      --image-offset-y <mm>    Same, Y axis
 
       Defaults below come from settings.json next to the binary (created there with
       these values on first run) - edit that file to change them permanently, or

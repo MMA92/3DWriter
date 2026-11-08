@@ -4,6 +4,17 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Known decoder CVEs in this (last pre-commercial-license) ImageSharp version are about
+         malformed/malicious input files; irrelevant here since this tool only ever decodes
+         image files the local user explicitly points it at. 3.1.6+ requires a Six Labors
+         license key to build, 4.x needs a paid/community license - not worth it for this. -->
+    <NoWarn>NU1902;NU1903</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Cross-platform image decode/resize for ImageGCodeGenerator - System.Drawing.Common is
+         Windows-only on net8.0, no good without it. -->
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.5" />
+  </ItemGroup>
 
 </Project>

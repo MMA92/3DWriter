@@ -50,6 +50,7 @@ public partial class MainWindow : Window
     private readonly List<BoxesSnapshot> _undoStack = new();
     private readonly List<BoxesSnapshot> _redoStack = new();
     private string? _lastGCode;
+    private string? _imagePath;
     private Point? _dragStart;
     private Rectangle? _dragGhost;
     private List<(ShapeControl Control, double Left, double Top, int Index)>? _dragGroup;
@@ -645,6 +646,37 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void OnLoadImageClick(object? sender, RoutedEventArgs e)
+    {
+        var storage = GetTopLevel(this)?.StorageProvider;
+        if (storage is null) return;
+
+        var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            FileTypeFilter = new[] { new FilePickerFileType("Images") { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif" } } },
+        });
+        if (files.Count == 0) return;
+
+        var path = files[0].TryGetLocalPath();
+        if (path is null)
+        {
+            StatusText.Foreground = Brushes.Crimson;
+            StatusText.Text = "Could not resolve a local path for that image.";
+            return;
+        }
+
+        _imagePath = path;
+        ImageFileText.Text = files[0].Name;
+        ClearImageButton.IsEnabled = true;
+    }
+
+    private void OnClearImageClick(object? sender, RoutedEventArgs e)
+    {
+        _imagePath = null;
+        ImageFileText.Text = "";
+        ClearImageButton.IsEnabled = false;
+    }
+
     private void OnRenderClick(object? sender, RoutedEventArgs e)
     {
         StatusText.Text = "";
@@ -676,8 +708,22 @@ public partial class MainWindow : Window
 
         try
         {
+            bool[,]? imageBitmap = null;
+            double imagePixelMm = (double)(ImageResolutionBox.Value ?? 0.5m);
+            double imageWidthMm = (double)(ImageWidthBox.Value ?? 100m);
+            double imageOffsetX = (double)(ImageOffsetXBox.Value ?? 45m);
+            double imageOffsetY = (double)(ImageOffsetYBox.Value ?? 45m);
+            bool invert = ImageInvertBox.IsChecked == true;
+            if (_imagePath is not null)
+            {
+                imageBitmap = ImageModeBox.SelectedIndex == 1
+                    ? ImageGCodeGenerator.LoadEdgeBitmap(_imagePath, imageWidthMm, imagePixelMm, (int)(ImageEdgeThresholdBox.Value ?? 100m), invert)
+                    : ImageGCodeGenerator.LoadBitmap(_imagePath, imageWidthMm, imagePixelMm, (byte)(ImageThresholdBox.Value ?? 128m), invert, ImageDitherBox.IsChecked == true);
+            }
+
             var font = FontData.Load(Path.Combine(_fontsDir, fontName + ".cmf"));
-            var result = GCodeGenerator.Generate(TextInputBox.Text ?? "", fontName, font, settings, _shapes);
+            var result = GCodeGenerator.Generate(TextInputBox.Text ?? "", fontName, font, settings, _shapes,
+                imageBitmap, imagePixelMm, imageOffsetX, imageOffsetY);
 
             foreach (var stroke in result.Strokes)
             {
@@ -693,13 +739,13 @@ public partial class MainWindow : Window
             _lastGCode = result.GCode;
             SaveButton.IsEnabled = true;
             StatusText.Foreground = result.OutOfBounds ? Brushes.Crimson : Brushes.Gray;
-            StatusText.Text = (result.TextOutOfBounds, result.ShapesOutOfBounds) switch
-            {
-                (true, true) => "Warning: text and shapes go out of the bed bounds.",
-                (true, false) => "Warning: text goes out of the bed bounds.",
-                (false, true) => "Warning: a shape goes out of the bed bounds.",
-                _ => $"Rendered {result.Strokes.Count} strokes.",
-            };
+            var outOfBoundsParts = new List<string>();
+            if (result.TextOutOfBounds) outOfBoundsParts.Add("text");
+            if (result.ShapesOutOfBounds) outOfBoundsParts.Add("a shape");
+            if (result.ImageOutOfBounds) outOfBoundsParts.Add("the image");
+            StatusText.Text = outOfBoundsParts.Count > 0
+                ? $"Warning: {string.Join(" and ", outOfBoundsParts)} go{(outOfBoundsParts.Count == 1 ? "es" : "")} out of the bed bounds."
+                : $"Rendered {result.Strokes.Count} strokes.";
         }
         catch (UnsupportedCharacterException ex)
         {
